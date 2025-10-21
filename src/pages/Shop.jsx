@@ -220,7 +220,7 @@ export default function Shop() {
       {displayProducts.length === 0 ? (
         <p style={{ color: "gray" }}>
           {slug
-            ? "No medicines yet from this pharmacy."
+            ? "No medicines found for this pharmacy. Please check the link or select a valid business."
             : "No medicines found."}
         </p>
       ) : (
