@@ -26,6 +26,8 @@ export default function AddMedicine() {
     class: "",
     price: "",
     image: "",
+    isPOM: false,
+    registeredOnly: false,
   });
   const [editingId, setEditingId] = useState(null);
   const [csvPreview, setCsvPreview] = useState([]);
@@ -112,6 +114,8 @@ export default function AddMedicine() {
           image: image || "",
           ownerSlug: ownerSlug || "",
           businessName: businessName || "",
+          isPOM: !!medicine.isPOM,
+          registeredOnly: !!medicine.registeredOnly,
         });
         setEditingId(null);
       } else {
@@ -124,9 +128,11 @@ export default function AddMedicine() {
           ownerId: user.uid,
           ownerSlug: ownerSlug || "",
           businessName: businessName || "",
+          isPOM: !!medicine.isPOM,
+          registeredOnly: !!medicine.registeredOnly,
         });
       }
-      setMedicine({ name: "", ingredient: "", class: "", price: "", image: "" });
+      setMedicine({ name: "", ingredient: "", class: "", price: "", image: "", isPOM: false, registeredOnly: false });
     } catch (err) {
       console.error(err);
       alert("Error saving medicine");
@@ -173,6 +179,7 @@ export default function AddMedicine() {
           ownerId: user.uid,
           ownerSlug: ownerSlug || "",
           businessName: businessName || "",
+          isPOM: !!row.isPOM,
         });
         batchMedicineIds.push(medRef.id);
       } catch (err) {
@@ -202,6 +209,7 @@ export default function AddMedicine() {
       class: med.class,
       price: med.price,
       image: med.image || "",
+      isPOM: !!med.isPOM,
     });
     setEditingId(med.id);
   };
@@ -304,7 +312,7 @@ export default function AddMedicine() {
 
       {/* Add/Edit Form */}
       <form onSubmit={handleAddMedicine} style={{ marginTop: "20px", marginBottom: "30px" }}>
-        {requiredFields.map((field) => (
+        {requiredFields.filter(f => f !== "isPOM").map((field) => (
           <div key={field} style={{ marginBottom: "10px" }}>
             <label>
               {field === "name" ? "Medicine Name" :
@@ -320,6 +328,35 @@ export default function AddMedicine() {
             </label>
           </div>
         ))}
+        <div style={{ marginBottom: "10px" }}>
+          <label>
+            Prescription Only Medication (POM):
+            <select
+              value={medicine.isPOM ? "yes" : "no"}
+              onChange={e => setMedicine({ ...medicine, isPOM: e.target.value === "yes" })}
+              style={{ marginLeft: "10px" }}
+            >
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          </label>
+        </div>
+        {/* Registered Only Toggle for Distributors */}
+        {userData?.role === "distributor" && (
+          <div style={{ marginBottom: "10px" }}>
+            <label>
+              <span style={{ color: "#7c3aed", fontWeight: "bold" }}>Only registered businesses can buy:</span>
+              <select
+                value={medicine.registeredOnly ? "yes" : "no"}
+                onChange={e => setMedicine({ ...medicine, registeredOnly: e.target.value === "yes" })}
+                style={{ marginLeft: "10px" }}
+              >
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </label>
+          </div>
+        )}
         <button type="submit">{editingId ? "Update Medicine" : "Add Medicine"}</button>
       </form>
 
@@ -333,6 +370,7 @@ export default function AddMedicine() {
               <th>Ingredient</th>
               <th>Class</th>
               <th>Price (₦)</th>
+              <th>POM</th>
               <th>Image</th>
               <th>Actions</th>
             </tr>
@@ -344,6 +382,7 @@ export default function AddMedicine() {
                 <td>{med.ingredient}</td>
                 <td>{med.class}</td>
                 <td>{med.price}</td>
+                <td>{med.isPOM ? <span style={{ background: "#e53935", color: "#fff", padding: "2px 8px", borderRadius: "6px", fontSize: "12px" }}>POM</span> : null}</td>
                 <td>{med.image && <img src={med.image} alt={med.name} style={{ width: "50px", height: "50px", objectFit: "cover" }} />}</td>
                 <td>
                   <button onClick={() => handleEdit(med)} style={{ marginRight: "5px" }}>Edit</button>

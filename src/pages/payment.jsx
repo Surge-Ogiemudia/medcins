@@ -4,15 +4,20 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import { doc, setDoc, collection, getDoc } from "firebase/firestore";
 import { PaystackButton } from "react-paystack";
+import { validateCoupon } from "../utils/coupon";
 
 export default function Payment() {
+  const [coupon, setCoupon] = useState("");
+  const [couponData, setCouponData] = useState(null);
+  const [couponError, setCouponError] = useState("");
   const auth = getAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState(null);
   const [cart, setCart] = useState(location.state?.cart || []);
   const [subtotal, setSubtotal] = useState(location.state?.total || 0);
-  const [deliveryFee] = useState(0); // fixed delivery fee
+  const [deliveryFee] = useState(500); // fixed delivery fee
+  const [pomFee, setPomFee] = useState(1000);
   const [grandTotal, setGrandTotal] = useState(subtotal + deliveryFee);
 
   const [deliveryInfo, setDeliveryInfo] = useState({
@@ -50,8 +55,30 @@ export default function Payment() {
   }, [auth, cart.length, deliveryFee, navigate]);
 
   useEffect(() => {
-    setGrandTotal(subtotal + deliveryFee);
-  }, [subtotal, deliveryFee]);
+    // Check for POM items
+    let pomFee = cart.some(item => item.isPOM) ? 500 : 0;
+    let delivery = deliveryFee;
+    let sub = subtotal;
+    let discount = 0;
+    if (couponData) {
+      if (couponData.removePOM) pomFee = 0;
+      if (couponData.removeDelivery) delivery = 0;
+      if (couponData.percent > 0) discount = Math.round((sub + pomFee + delivery) * (couponData.percent / 100));
+    }
+    setPomFee(pomFee);
+    setGrandTotal(sub + pomFee + delivery - discount);
+  }, [subtotal, deliveryFee, cart, couponData]);
+  const handleApplyCoupon = async () => {
+    setCouponError("");
+    const data = await validateCoupon(coupon.trim().toUpperCase());
+    if (!data) {
+      setCouponData(null);
+      setCouponError("Invalid coupon code");
+    } else {
+      setCouponData(data);
+      setCouponError("");
+    }
+  };
 
   const isDeliveryInfoValid = () => {
     const requiredFields = ["name", "phone", "address", "city", "state"];
@@ -72,13 +99,15 @@ export default function Payment() {
     await setDoc(orderRef, {
       userId: user.uid,
       items: cart,
-      subtotal,
-      deliveryFee,
-      total: grandTotal,
-      status: "Processing",
-      date: new Date().toISOString(),
-      paymentReference: reference.reference,
-      deliveryInfo,
+  subtotal,
+  deliveryFee,
+  pomFee,
+  total: grandTotal,
+  status: "Processing",
+  date: new Date().toISOString(),
+  paymentReference: reference?.reference || "COUPON_FREE",
+  deliveryInfo,
+  coupon: couponData || null,
     });
 
     await setDoc(doc(db, "carts", user.uid), { items: [] });
@@ -87,7 +116,11 @@ export default function Payment() {
     setGrandTotal(0);
 
     alert("✅ Payment successful! Order created.");
-    navigate("/orders");
+    if (cart.some(item => item.isPOM)) {
+      navigate("/medinterface");
+    } else {
+      navigate("/orders");
+    }
   };
 
   const handlePaymentClose = () => {
@@ -123,7 +156,30 @@ export default function Payment() {
             ))}
           </ul>
           <p>Subtotal: ₦{subtotal}</p>
-          <p>Delivery Fee: ₦{deliveryFee}</p>
+          <p>Delivery Fee: ₦{couponData?.removeDelivery ? 0 : deliveryFee}</p>
+          <p style={{ color: pomFee > 0 ? "#e53935" : undefined, fontWeight: pomFee > 0 ? 500 : undefined }}>
+            POM Fee: ₦{couponData?.removePOM ? 0 : pomFee}
+          </p>
+          {couponData?.percent > 0 && (
+            <p style={{ color: "#007bff" }}>Discount: -₦{Math.round((subtotal + pomFee + (couponData?.removeDelivery ? 0 : deliveryFee)) * (couponData.percent / 100))}</p>
+          )}
+          {/* Coupon Input - moved here */}
+          <div style={{ marginBottom: 18 }}>
+            <input
+              type="text"
+              placeholder="Coupon code"
+              value={coupon}
+              onChange={e => setCoupon(e.target.value)}
+              style={{ marginRight: 10 }}
+            />
+            <button type="button" onClick={handleApplyCoupon}>Apply Coupon</button>
+            {couponError && <span style={{ color: "#e53935", marginLeft: 10 }}>{couponError}</span>}
+            {couponData && (
+              <span style={{ color: "#007bff", marginLeft: 10 }}>
+                Applied: {couponData.code} ({couponData.percent}% off{couponData.removePOM ? ", no POM fee" : ""}{couponData.removeDelivery ? ", no delivery fee" : ""})
+              </span>
+            )}
+          </div>
           <p>
             <strong>Grand Total: ₦{grandTotal}</strong>
           </p>
@@ -174,14 +230,23 @@ export default function Payment() {
           </div>
 
           {isDeliveryInfoValid() ? (
-            <PaystackButton
-              text="Pay Now 💳"
-              className="paystack-button"
-              {...config}
-              onSuccess={handlePaymentSuccess}
-              onClose={handlePaymentClose}
-              style={{ marginTop: "20px" }}
-            />
+            grandTotal > 0 ? (
+              <PaystackButton
+                text="Pay Now 💳"
+                className="paystack-button"
+                {...config}
+                callback={handlePaymentSuccess}
+                close={handlePaymentClose}
+                style={{ marginTop: "20px" }}
+              />
+            ) : (
+              <button
+                onClick={() => handlePaymentSuccess({ reference: "COUPON_FREE" })}
+                style={{ marginTop: "20px", background: "#007bff", color: "#fff", border: "none", borderRadius: "5px", padding: "10px 20px", fontWeight: "bold" }}
+              >
+                Complete Order (Free)
+              </button>
+            )
           ) : (
             <button
               onClick={handleDisabledClick}

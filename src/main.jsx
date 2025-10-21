@@ -11,6 +11,8 @@ import AddMedicine from "./pages/AddMedicine"; // <-- import it
 import Payment from "./pages/payment"; 
 import AdminDashboard from "./pages/Admin";
 import BusinessShop from "./pages/BusinessShop";
+import Restock from "./pages/Restock";
+import Medinterface from "./pages/Medinterface";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -30,7 +32,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Link to="/auth">Auth</Link>
         <Link to="/orders">Orders</Link>
         <Link to="/add-medicine">Add Medicine</Link> {/* <-- new link */}
-        <Link to="/admin">Admin</Link>
+  <Link to="/admin">Admin</Link>
+  <Link to="/restock">Restock</Link>
+
+    <Link to="/medinterface">Medinterface</Link>
 
       </nav>
 
@@ -44,7 +49,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/payment" element={<Payment />} /> {/* <-- added Payment route */}
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/store/:slug" element={<BusinessShop />} />
-        <Route path="/:slug" element={<BusinessShop />} />
+  <Route path="/restock" element={<Restock />} />
+  <Route path="/:slug" element={<BusinessShop />} />
+    <Route path="/medinterface" element={<Medinterface />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

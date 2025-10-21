@@ -17,10 +17,83 @@ export default function Auth() {
   const [user, setUser] = useState(null);
 
   const [isBusinessSignupOpen, setIsBusinessSignupOpen] = useState(false);
+  const [isDistributorSignupOpen, setIsDistributorSignupOpen] = useState(false);
   const [businessName, setBusinessName] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
+  const [distributorName, setDistributorName] = useState("");
+  const [distributorLicense, setDistributorLicense] = useState("");
   const [location, setLocation] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
+  const [distributorLocation, setDistributorLocation] = useState(null);
+  const [loadingDistributorLocation, setLoadingDistributorLocation] = useState(false);
+  // -------- GET DISTRIBUTOR LOCATION --------
+  const captureDistributorLocation = async () => {
+    if (!navigator.geolocation) {
+      alert("❌ Geolocation is not supported by your browser.");
+      return null;
+    }
+    setLoadingDistributorLocation(true);
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          };
+          setDistributorLocation(coords);
+          setLoadingDistributorLocation(false);
+          resolve(coords);
+        },
+        (err) => {
+          setLoadingDistributorLocation(false);
+          alert("⚠️ Location access denied or unavailable.");
+          reject(err);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    });
+  };
+
+  // -------- DISTRIBUTOR SIGNUP --------
+  const signupDistributor = async () => {
+    try {
+      if (!distributorName || !distributorLicense) {
+        alert("Please provide distributor name and license number.");
+        return;
+      }
+      // Capture location before account creation
+      const coords = await captureDistributorLocation();
+      if (!coords) {
+        alert("📍 Location required to complete distributor signup.");
+        return;
+      }
+      const res = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = res.user;
+      // Generate unique slug
+      const slug = await generateUniqueSlug(distributorName);
+      const userData = {
+        email: newUser.email,
+        role: "distributor",
+        businessName: distributorName,
+        licenseNumber: distributorLicense,
+        location: coords,
+        slug,
+        businessSlug: slug,
+        createdAt: new Date().toISOString(),
+      };
+      await writeUserDoc(newUser.uid, userData);
+      setUser({ ...newUser, ...userData });
+      alert(`✅ Distributor signup successful!\nYour distributor link: medcins.com/store/${slug}`);
+      // reset
+      setIsDistributorSignupOpen(false);
+      setDistributorName("");
+      setDistributorLicense("");
+      setDistributorLocation(null);
+    } catch (err) {
+      console.error("Distributor signup error:", err);
+      alert(err.message || "Distributor signup failed");
+    }
+  };
 
   // -------- Helper: Slugify a business name --------
   const slugify = (text) => {
@@ -239,6 +312,13 @@ export default function Auth() {
               {isBusinessSignupOpen ? "Close Business Signup" : "Sign Up as Business"}
             </button>
 
+            <button
+              onClick={() => setIsDistributorSignupOpen((s) => !s)}
+              style={{ margin: "5px", padding: "8px 12px" }}
+            >
+              {isDistributorSignupOpen ? "Close Distributor Signup" : "Sign Up as Distributor"}
+            </button>
+
             <button onClick={login} style={{ margin: "5px", padding: "8px 12px" }}>
               Login
             </button>
@@ -286,6 +366,52 @@ export default function Auth() {
                 <p style={{ fontSize: "12px", marginTop: "8px" }}>
                   📍 Location captured: {location.latitude.toFixed(5)},{" "}
                   {location.longitude.toFixed(5)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {isDistributorSignupOpen && (
+            <div
+              style={{
+                marginTop: "20px",
+                textAlign: "left",
+                maxWidth: 480,
+                marginLeft: "auto",
+                marginRight: "auto",
+              }}
+            >
+              <p style={{ marginBottom: 6 }}>Distributor Signup — provide your details</p>
+
+              <input
+                type="text"
+                placeholder="Distributor Name"
+                value={distributorName}
+                onChange={(e) => setDistributorName(e.target.value)}
+                style={{ margin: "6px 0", padding: "8px", width: "100%" }}
+              />
+
+              <input
+                type="text"
+                placeholder="License Number"
+                value={distributorLicense}
+                onChange={(e) => setDistributorLicense(e.target.value)}
+                style={{ margin: "6px 0", padding: "8px", width: "100%" }}
+              />
+
+              <div style={{ marginTop: 10 }}>
+                <button
+                  onClick={signupDistributor}
+                  style={{ padding: "8px 12px" }}
+                  disabled={loadingDistributorLocation}
+                >
+                  {loadingDistributorLocation ? "Getting Location..." : "Complete Distributor Signup"}
+                </button>
+              </div>
+
+              {distributorLocation && (
+                <p style={{ fontSize: "12px", marginTop: "8px" }}>
+                  📍 Location captured: {distributorLocation.latitude.toFixed(5)}, {distributorLocation.longitude.toFixed(5)}
                 </p>
               )}
             </div>

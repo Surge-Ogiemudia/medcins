@@ -69,6 +69,7 @@ export default function Shop() {
               const bizData = bizSnap.data();
               data.businessName = bizData.businessName || "Unknown Pharmacy";
               data.ownerSlug = bizData.slug || null;
+              data.ownerRole = bizData.role || null;
               if (bizData.location?.latitude && bizData.location?.longitude) {
                 data.businessLat = bizData.location.latitude;
                 data.businessLng = bizData.location.longitude;
@@ -78,7 +79,8 @@ export default function Shop() {
           return data;
         })
       );
-      setProducts(items);
+      // Hide products added by distributors
+      setProducts(items.filter((p) => p.ownerRole !== "distributor"));
     });
     return () => unsub();
   }, []);
@@ -239,8 +241,49 @@ export default function Shop() {
                 background: "#fff",
                 boxShadow: "0 1px 6px rgba(0,0,0,0.1)",
                 position: "relative",
+                minHeight: "220px"
               }}
             >
+              {/* Registered Only Badge */}
+              {p.registeredOnly && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "10px",
+                    left: "10px",
+                    background: "#7c3aed",
+                    color: "#fff",
+                    padding: "2px 10px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: "bold",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                    letterSpacing: "1px"
+                  }}
+                >
+                  Registered Only
+                </span>
+              )}
+              {/* POM Badge */}
+              {p.isPOM && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: p.registeredOnly ? "38px" : "10px",
+                    left: "10px",
+                    background: "#e53935",
+                    color: "#fff",
+                    padding: "2px 10px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: "bold",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+                    letterSpacing: "1px"
+                  }}
+                >
+                  POM
+                </span>
+              )}
               {p.image && (
                 <img
                   src={p.image}
