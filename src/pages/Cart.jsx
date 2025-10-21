@@ -5,10 +5,15 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
 export default function Cart() {
+  const [user, setUser] = useState(null);
+  const [cart, setCart] = useState([]);
+  const [total, setTotal] = useState(0);
   const [showRegistration, setShowRegistration] = useState(false);
   const [registrationData, setRegistrationData] = useState({});
   const [distributorIds, setDistributorIds] = useState([]);
   const [businessInfo, setBusinessInfo] = useState(null);
+  const auth = getAuth();
+  const navigate = useNavigate();
 
   // Fetch business info for prefill
   useEffect(() => {
@@ -43,11 +48,6 @@ export default function Cart() {
     // Optionally, redirect or update UI
     setShowRegistration(false);
   };
-  const auth = getAuth();
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [cart, setCart] = useState([]);
-  const [total, setTotal] = useState(0);
 
   // Watch auth state
   useEffect(() => {

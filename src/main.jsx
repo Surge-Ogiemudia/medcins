@@ -46,12 +46,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route path="/auth" element={<Auth />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/add-medicine" element={<AddMedicine />} />
-        <Route path="/payment" element={<Payment />} /> {/* <-- added Payment route */}
+        <Route path="/payment" element={<Payment />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/store/:slug" element={<BusinessShop />} />
-  <Route path="/restock" element={<Restock />} />
-  <Route path="/:slug" element={<BusinessShop />} />
-    <Route path="/medinterface" element={<Medinterface />} />
+        <Route path="/restock" element={<Restock />} />
+        <Route path="/medinterface" element={<Medinterface />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
