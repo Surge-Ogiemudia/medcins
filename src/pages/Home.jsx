@@ -38,6 +38,28 @@ export default function Home() {
       ) : (
         <p style={{ color: "gray" }}>{error || "Detecting your location..."}</p>
       )}
+
+      {/* Banner Button to Find Pharmacies */}
+      <div style={{ margin: "40px 0" }}>
+        <a
+          href="/businesses"
+          style={{
+            display: "inline-block",
+            padding: "18px 36px",
+            background: "linear-gradient(90deg,#7c3aed,#4f46e5)",
+            color: "#fff",
+            fontSize: "1.3em",
+            fontWeight: "bold",
+            borderRadius: "12px",
+            boxShadow: "0 2px 12px rgba(124,58,237,0.12)",
+            textDecoration: "none",
+            transition: "background 0.2s,box-shadow 0.2s",
+          }}
+        >
+          🔎 Find a pharmacy store near you
+        </a>
+          
+      </div>
     </div>
   );
 }

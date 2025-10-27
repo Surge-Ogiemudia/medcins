@@ -6,6 +6,7 @@ import { db } from "../firebase";
 import { doc, setDoc, getDoc, onSnapshot, collection } from "firebase/firestore";
 
 export default function Shop() {
+  const [showCartNotice, setShowCartNotice] = useState(false);
   const { slug } = useParams(); // ✅ capture /:slug if present
   const [user, setUser] = useState(null);
   const [products, setProducts] = useState([]);
@@ -43,10 +44,26 @@ export default function Shop() {
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => {
+        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setUserLocation(coords);
+        // Save to Firestore if user is logged in
+        const authUser = auth.currentUser;
+        if (authUser) {
+          const userRef = doc(db, "users", authUser.uid);
+          // Only update if customer (not business/agent)
+          getDoc(userRef).then((snap) => {
+            const data = snap.data();
+            if (data && data.role === "customer") {
+              // Save lat/lng to user doc
+              setDoc(userRef, { lat: coords.lat, lng: coords.lng }, { merge: true });
+            }
+          });
+        }
+      },
       () => setUserLocation("denied")
     );
-  }, []);
+  }, [auth]);
 
   // --- Auth + cart listener ---
   useEffect(() => {
@@ -181,14 +198,32 @@ export default function Shop() {
   // --- Add to cart (unchanged) ---
   const addToCart = async (item) => {
     if (!user) return alert("Please log in first");
+    // Attach businessPhone and businessWhatsapp to item if available
+    let itemWithContacts = { ...item };
+    if (!itemWithContacts.businessPhone || !itemWithContacts.businessWhatsapp) {
+      // Try to fetch from business user doc
+      if (itemWithContacts.ownerId) {
+        try {
+          const businessRef = doc(db, "users", itemWithContacts.ownerId);
+          const bizSnap = await getDoc(businessRef);
+          if (bizSnap.exists()) {
+            const bizData = bizSnap.data();
+            itemWithContacts.businessPhone = bizData.businessPhone || "";
+            itemWithContacts.businessWhatsapp = bizData.businessWhatsapp || "";
+          }
+        } catch (e) { /* ignore */ }
+      }
+    }
     const cartRef = doc(db, "carts", user.uid);
     const cartSnap = await getDoc(cartRef);
     let newCart = cartSnap.exists() ? cartSnap.data().items || [] : [];
-    const index = newCart.findIndex((i) => i.name === item.name);
+    const index = newCart.findIndex((i) => i.name === itemWithContacts.name);
     if (index >= 0) newCart[index].quantity += 1;
-    else newCart.push({ ...item, quantity: 1 });
+    else newCart.push({ ...itemWithContacts, quantity: 1 });
     await setDoc(cartRef, { items: newCart });
     setAddedMessage(item.id);
+    setShowCartNotice(true);
+    setTimeout(() => setShowCartNotice(false), 1800);
     setTimeout(() => setAddedMessage(null), 1000);
   };
 
@@ -197,6 +232,25 @@ export default function Shop() {
   // --- UI ---
   return (
     <div style={{ padding: "30px", position: "relative" }}>
+      {showCartNotice && (
+        <div style={{
+          position: 'fixed',
+          top: '30px',
+          right: '30px',
+          background: '#7c3aed',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 12px rgba(124,58,237,0.15)',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          zIndex: 2000,
+          opacity: 0.97,
+          transition: 'opacity 0.3s',
+        }}>
+          Added to cart! <a href="/cart" style={{ color: '#fff', textDecoration: 'underline', marginLeft: 10 }}>View Cart</a>
+        </div>
+      )}
       <h2>
         🩺 {slug ? `${slug}'s Pharmacy` : "Pharmacy Shop"}
       </h2>
@@ -297,13 +351,29 @@ export default function Shop() {
                   }}
                 />
               )}
-              <strong>{p.name}</strong>
-              <p><em>{p.ingredient}</em></p>
-              <p>Class: {p.class}</p>
-              <p>Price: ₦{p.price}</p>
+              <strong>{p.name || "Unnamed Drug"}</strong>
+              <p><em>{p.ingredient || "No ingredient listed"}</em></p>
+              <p>Class: {p.class || "No class listed"}</p>
+              <p>Price: ₦{p.price !== undefined ? p.price : "N/A"}</p>
               <p style={{ fontSize: "0.9em", color: "#555" }}>
-                🏥 {p.businessName || "Unknown Pharmacy"}
+                🏥 {p.ownerSlug ? (
+                  <a
+                    href={`/store/${p.ownerSlug}`}
+                    style={{ color: '#7c3aed', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
+                  >
+                    {p.businessName && p.businessName.trim() ? p.businessName : "Unknown Pharmacy"}
+                  </a>
+                ) : (
+                  p.businessName && p.businessName.trim() ? p.businessName : "Unknown Pharmacy"
+                )}
               </p>
+              <button
+                onClick={() => addToCart(p)}
+                style={{ marginTop: "10px" }}
+                disabled={typeof addToCart !== "function"}
+              >
+                Add to Cart
+              </button>
               {p.minutesAway && p.minutesAway !== Infinity && (
                 <p style={{ color: "#4caf50", fontWeight: "500" }}>
                   {p.minutesAway <= 1
@@ -311,12 +381,6 @@ export default function Shop() {
                     : `💨 ~${p.minutesAway} mins away`}
                 </p>
               )}
-              <button
-                onClick={() => addToCart(p)}
-                style={{ marginTop: "10px" }}
-              >
-                Add to Cart
-              </button>
               {addedMessage === p.id && (
                 <span
                   style={{

@@ -17,6 +17,37 @@ import Papa from "papaparse";
 const requiredFields = ["name", "ingredient", "class", "price", "image"];
 
 export default function AddMedicine() {
+  const [medicineSearch, setMedicineSearch] = useState("");
+  // ...existing code...
+  const [activeTab, setActiveTab] = useState('add'); // 'add', 'manage', 'pharmacist'
+  // Block if inside a store slug or if user is customer
+  const path = window.location.pathname;
+  const storeMatch = path.match(/^\/store\/([^\/]+)/);
+  const [userRole, setUserRole] = useState(null);
+  useEffect(() => {
+    import("firebase/auth").then(({ getAuth, onAuthStateChanged }) => {
+      const auth = getAuth();
+      onAuthStateChanged(auth, async (u) => {
+        if (u) {
+          const { getDoc, doc } = await import("firebase/firestore");
+          const snap = await getDoc(doc(db, "users", u.uid));
+          setUserRole(snap.exists() ? snap.data().role : null);
+        } else {
+          setUserRole(null);
+        }
+      });
+    });
+  }, []);
+  if (storeMatch || userRole === "customer") {
+    return (
+      <div style={{padding: '40px', textAlign: 'center', color: '#7c3aed'}}>
+        <h2>Access Denied</h2>
+        <p>This page is only for business/admin users. Please use the store features.</p>
+      </div>
+    );
+  }
+  // Block if inside a store slug
+  // (Already handled above, so this block is removed)
   const [user, setUser] = useState(null); // Firebase Auth user
   const [userData, setUserData] = useState(null); // Firestore user doc (role, businessName, slug, etc.)
   const [medicines, setMedicines] = useState([]);
@@ -32,6 +63,16 @@ export default function AddMedicine() {
   const [editingId, setEditingId] = useState(null);
   const [csvPreview, setCsvPreview] = useState([]);
   const [batches, setBatches] = useState([]);
+
+  // Move filteredMedicines here, after medicines is defined
+  const filteredMedicines = medicines.filter(med => {
+    const q = medicineSearch.toLowerCase();
+    return (
+      med.name?.toLowerCase().includes(q) ||
+      med.ingredient?.toLowerCase().includes(q) ||
+      med.class?.toLowerCase().includes(q)
+    );
+  });
 
   const auth = getAuth();
 
@@ -102,7 +143,9 @@ export default function AddMedicine() {
     if (isNaN(parsedPrice) || parsedPrice < 0)
       return alert("Price must be a positive number");
 
-    const { ownerSlug, businessName } = getOwnerMeta();
+  const { ownerSlug, businessName } = getOwnerMeta();
+  // Get pharmacist info if available
+  const pharmacist = userData?.pharmacist || null;
 
     try {
       if (editingId) {
@@ -116,6 +159,7 @@ export default function AddMedicine() {
           businessName: businessName || "",
           isPOM: !!medicine.isPOM,
           registeredOnly: !!medicine.registeredOnly,
+          pharmacist: pharmacist || null,
         });
         setEditingId(null);
       } else {
@@ -130,6 +174,7 @@ export default function AddMedicine() {
           businessName: businessName || "",
           isPOM: !!medicine.isPOM,
           registeredOnly: !!medicine.registeredOnly,
+          pharmacist: pharmacist || null,
         });
       }
       setMedicine({ name: "", ingredient: "", class: "", price: "", image: "", isPOM: false, registeredOnly: false });
@@ -165,7 +210,8 @@ export default function AddMedicine() {
 
     const batchRef = doc(collection(db, "batches"));
     const batchMedicineIds = [];
-    const { ownerSlug, businessName } = getOwnerMeta();
+  const { ownerSlug, businessName } = getOwnerMeta();
+  const pharmacist = userData?.pharmacist || null;
 
     for (let row of csvPreview) {
       try {
@@ -180,6 +226,7 @@ export default function AddMedicine() {
           ownerSlug: ownerSlug || "",
           businessName: businessName || "",
           isPOM: !!row.isPOM,
+          pharmacist: pharmacist || null,
         });
         batchMedicineIds.push(medRef.id);
       } catch (err) {
@@ -212,6 +259,7 @@ export default function AddMedicine() {
       isPOM: !!med.isPOM,
     });
     setEditingId(med.id);
+    setActiveTab('add'); // Switch to Add Medicines tab
   };
 
   const handleDelete = async (med) => {
@@ -248,150 +296,234 @@ export default function AddMedicine() {
     return <p>Access denied. Medicine managers only.</p>;
 
   return (
-    <div style={{ padding: "30px" }}>
-      <h2>{editingId ? "✏️ Edit Medicine" : "➕ Add New Medicine"}</h2>
+    <div style={{ padding: "30px", maxWidth: "1200px", margin: "auto" }}>
+      <h2>Medicine Management</h2>
       <p>Logged in as: {user.email}</p>
 
-      {/* CSV Upload */}
-      <h3>📄 Bulk Upload Medicines (CSV)</h3>
-      <input type="file" accept=".csv" onChange={handleCsvChange} />
-      {csvPreview.length > 0 && (
-        <>
-          <h4>Preview (Editable)</h4>
-          <table border="1" cellPadding="5" style={{ width: "100%", marginBottom: "10px" }}>
-            <thead>
-              <tr>{requiredFields.map((f) => <th key={f}>{f}</th>)}</tr>
-            </thead>
-            <tbody>
-              {csvPreview.map((row, i) => (
-                <tr key={i}>
-                  {requiredFields.map((field) => (
-                    <td key={field}>
-                      <input
-                        type={field === "price" ? "number" : "text"}
-                        value={row[field]}
-                        style={{ width: "100%" }}
-                        onChange={(e) => handleCsvFieldChange(i, field, e.target.value)}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button onClick={handleCsvUpload}>Upload CSV</button>
-        </>
-      )}
+      {/* Tabs */}
+      <div style={{display:'flex',marginTop:30,gap:20}}>
+        <button 
+          style={{padding:'10px 30px',fontWeight:'bold',borderRadius:8,border:activeTab==='add'?'2px solid #1976d2':'1px solid #ccc',background:activeTab==='add'?'#e3f2fd':'#fff',cursor:'pointer'}} 
+          onClick={()=>setActiveTab('add')}
+        >Add Medicines</button>
+        <button 
+          style={{padding:'10px 30px',fontWeight:'bold',borderRadius:8,border:activeTab==='manage'?'2px solid #1976d2':'1px solid #ccc',background:activeTab==='manage'?'#e3f2fd':'#fff',cursor:'pointer'}} 
+          onClick={()=>setActiveTab('manage')}
+        >Manage Products</button>
+        <button 
+          style={{padding:'10px 30px',fontWeight:'bold',borderRadius:8,border:activeTab==='pharmacist'?'2px solid #1976d2':'1px solid #ccc',background:activeTab==='pharmacist'?'#e3f2fd':'#fff',cursor:'pointer'}} 
+          onClick={()=>setActiveTab('pharmacist')}
+        >Pharmacist Management</button>
+      </div>
 
-      {/* Batches */}
-      <h3>📂 Your Uploaded CSV Batches</h3>
-      {batches.length === 0 ? (
-        <p>No batches uploaded yet.</p>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "20px" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #ccc" }}>
-              <th>Batch Name</th>
-              <th>Date</th>
-              <th>Medicines Count</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {batches.map((batch) => (
-              <tr key={batch.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td>{batch.name}</td>
-                <td>{new Date(batch.date).toLocaleString()}</td>
-                <td>{batch.medicineIds.length}</td>
-                <td><button onClick={() => handleDeleteBatch(batch)}>Delete Batch</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* Add/Edit Form */}
-      <form onSubmit={handleAddMedicine} style={{ marginTop: "20px", marginBottom: "30px" }}>
-        {requiredFields.filter(f => f !== "isPOM").map((field) => (
-          <div key={field} style={{ marginBottom: "10px" }}>
-            <label>
-              {field === "name" ? "Medicine Name" :
-                field === "ingredient" ? "Active Ingredient & Strength" :
-                  field === "class" ? "Medicine Class" :
-                    field === "price" ? "Price (₦)" : "Image URL (optional)"}
-              <input
-                type={field === "price" ? "number" : "text"}
-                value={medicine[field]}
-                onChange={(e) => setMedicine({ ...medicine, [field]: e.target.value })}
-                style={{ marginLeft: "10px" }}
-              />
-            </label>
-          </div>
-        ))}
-        <div style={{ marginBottom: "10px" }}>
-          <label>
-            Prescription Only Medication (POM):
-            <select
-              value={medicine.isPOM ? "yes" : "no"}
-              onChange={e => setMedicine({ ...medicine, isPOM: e.target.value === "yes" })}
-              style={{ marginLeft: "10px" }}
-            >
-              <option value="no">No</option>
-              <option value="yes">Yes</option>
-            </select>
-          </label>
-        </div>
-        {/* Registered Only Toggle for Distributors */}
-        {userData?.role === "distributor" && (
-          <div style={{ marginBottom: "10px" }}>
-            <label>
-              <span style={{ color: "#7c3aed", fontWeight: "bold" }}>Only registered businesses can buy:</span>
-              <select
-                value={medicine.registeredOnly ? "yes" : "no"}
-                onChange={e => setMedicine({ ...medicine, registeredOnly: e.target.value === "yes" })}
-                style={{ marginLeft: "10px" }}
-              >
-                <option value="no">No</option>
-                <option value="yes">Yes</option>
-              </select>
-            </label>
+      {/* Tab Content */}
+      <div style={{marginTop:30}}>
+        {activeTab==='add' && (
+          <div style={{background:'#f8f8ff',padding:'24px',borderRadius:'12px',maxWidth:'900px',margin:'auto'}}>
+            <h3 style={{ color: "#7c3aed" }}>Add Medicines</h3>
+            {/* Single Add/Edit Medicine Form */}
+            <form onSubmit={handleAddMedicine} style={{ marginBottom: "20px" }}>
+              <h4>{editingId ? "Edit Medicine" : "Add Medicine"}</h4>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <input type="text" placeholder="Name" value={medicine.name} onChange={e => setMedicine({ ...medicine, name: e.target.value })} required style={{ flex: 1 }} />
+                <input type="text" placeholder="Ingredient" value={medicine.ingredient} onChange={e => setMedicine({ ...medicine, ingredient: e.target.value })} required style={{ flex: 1 }} />
+                <input type="text" placeholder="Class" value={medicine.class} onChange={e => setMedicine({ ...medicine, class: e.target.value })} required style={{ flex: 1 }} />
+                <input type="number" placeholder="Price (₦)" value={medicine.price} onChange={e => setMedicine({ ...medicine, price: e.target.value })} required style={{ flex: 1 }} />
+                <input type="text" placeholder="Image URL" value={medicine.image} onChange={e => setMedicine({ ...medicine, image: e.target.value })} style={{ flex: 1 }} />
+              </div>
+              <div style={{ marginTop: "10px" }}>
+                <label style={{ marginRight: "20px" }}>
+                  <input type="checkbox" checked={medicine.isPOM} onChange={e => setMedicine({ ...medicine, isPOM: e.target.checked })} /> Prescription Only (POM)
+                </label>
+              </div>
+              <button type="submit" style={{ marginTop: "15px", background: "#7c3aed", color: "#fff", padding: "8px 16px", borderRadius: "6px" }}>
+                {editingId ? "Update Medicine" : "Add Medicine"}
+              </button>
+              {editingId && (
+                <button type="button" style={{ marginLeft: "10px" }} onClick={() => { setEditingId(null); setMedicine({ name: "", ingredient: "", class: "", price: "", image: "", isPOM: false, registeredOnly: false }); }}>
+                  Cancel
+                </button>
+              )}
+            </form>
+            {/* CSV Upload Section */}
+            <div>
+              <h4>Bulk Add Medicines via CSV</h4>
+              <input type="file" accept=".csv" onChange={handleCsvChange} style={{ marginBottom: "10px" }} />
+              {csvPreview.length > 0 && (
+                <div>
+                  <h5>CSV Preview</h5>
+                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "10px" }}>
+                    <thead>
+                      <tr>
+                        {requiredFields.map((field) => (<th key={field}>{field}</th>))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {csvPreview.map((row, idx) => (
+                        <tr key={idx}>
+                          {requiredFields.map((field) => (<td key={field}>{row[field]}</td>))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <button onClick={handleCsvUpload} style={{ background: "#7c3aed", color: "#fff", padding: "8px 16px", borderRadius: "6px" }}>Upload Medicines</button>
+                </div>
+              )}
+            </div>
           </div>
         )}
-        <button type="submit">{editingId ? "Update Medicine" : "Add Medicine"}</button>
-      </form>
+        {activeTab==='manage' && (
+          <div style={{background:'#f4f4fa',padding:'24px',borderRadius:'12px',maxWidth:'900px',margin:'auto'}}>
+            <h3 style={{ color: "#7c3aed" }}>Manage Products</h3>
+            {/* Uploaded CSV Batches Section FIRST */}
+            <h4>Uploaded CSV Batches</h4>
+            {batches.length === 0 ? (
+              <p>No CSV batches uploaded yet.</p>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th>Batch Name</th>
+                    <th>Date</th>
+                    <th>Medicines Count</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {batches.map((batch) => (
+                    <tr key={batch.id}>
+                      <td>{batch.name}</td>
+                      <td>{new Date(batch.date).toLocaleString()}</td>
+                      <td>{batch.medicineIds?.length || 0}</td>
+                      <td>
+                        <button onClick={() => handleDeleteBatch(batch)} style={{ background: "#e53935", color: "#fff", padding: "6px 12px", borderRadius: "6px" }}>Delete Batch</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            {/* Medicines List */}
+            <h4 style={{ marginTop: "32px" }}>Your Medicines</h4>
+            <input
+              type="text"
+              placeholder="Search by name, ingredient, or class..."
+              style={{ width: '100%', marginBottom: 16, padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+              value={medicineSearch}
+              onChange={e => setMedicineSearch(e.target.value)}
+            />
+            {filteredMedicines.length === 0 ? <p>No medicines found.</p> : (
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #ccc" }}>
+                    <th>Name</th>
+                    <th>Ingredient</th>
+                    <th>Class</th>
+                    <th>Price (₦)</th>
+                    <th>POM</th>
+                    <th>Image</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMedicines.map((med) => (
+                    <tr key={med.id} style={{ borderBottom: "1px solid #eee" }}>
+                      <td>{med.name}</td>
+                      <td>{med.ingredient}</td>
+                      <td>{med.class}</td>
+                      <td>{med.price}</td>
+                      <td>{med.isPOM ? <span style={{ background: "#e53935", color: "#fff", padding: "2px 8px", borderRadius: "6px", fontSize: "12px" }}>POM</span> : null}</td>
+                      <td>{med.image && <img src={med.image} alt={med.name} style={{ width: "50px", height: "50px", objectFit: "cover" }} />}</td>
+                      <td>
+                        <button onClick={() => handleEdit(med)} style={{ marginRight: "5px" }}>Edit</button>
+                        <button onClick={() => handleDelete(med)}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+        {activeTab==='pharmacist' && (
+          <div style={{background:'#f8f8ff',padding:'24px',borderRadius:'12px',maxWidth:'900px',margin:'auto'}}>
+            <h3 style={{ color: "#7c3aed" }}>Pharmacist Management</h3>
+            {userData?.role === "medicine-manager" && (
+              <PharmacistManager userId={user.uid} />
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-      {/* Medicines List */}
-      <h3>💊 Your Medicines</h3>
-      {medicines.length === 0 ? <p>No medicines added yet.</p> : (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #ccc" }}>
-              <th>Name</th>
-              <th>Ingredient</th>
-              <th>Class</th>
-              <th>Price (₦)</th>
-              <th>POM</th>
-              <th>Image</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {medicines.map((med) => (
-              <tr key={med.id} style={{ borderBottom: "1px solid #eee" }}>
-                <td>{med.name}</td>
-                <td>{med.ingredient}</td>
-                <td>{med.class}</td>
-                <td>{med.price}</td>
-                <td>{med.isPOM ? <span style={{ background: "#e53935", color: "#fff", padding: "2px 8px", borderRadius: "6px", fontSize: "12px" }}>POM</span> : null}</td>
-                <td>{med.image && <img src={med.image} alt={med.name} style={{ width: "50px", height: "50px", objectFit: "cover" }} />}</td>
-                <td>
-                  <button onClick={() => handleEdit(med)} style={{ marginRight: "5px" }}>Edit</button>
-                  <button onClick={() => handleDelete(med)}>Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+// PharmacistManager component
+import React from "react";
+
+function PharmacistManager({ userId }) {
+  const [pharmacist, setPharmacist] = React.useState(null);
+  const [form, setForm] = React.useState({
+    photo: "",
+    name: "",
+    profession: "Pharmacist",
+    license: "",
+    pharmacyName: "",
+    languages: "",
+    whatsapp: ""
+  });
+  const [editing, setEditing] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    const ref = doc(db, "users", userId);
+    getDoc(ref).then(snap => {
+      const data = snap.data();
+      if (data && data.pharmacist) {
+        setPharmacist(data.pharmacist);
+        setForm({ ...data.pharmacist });
+        setEditing(true);
+      }
+    });
+  }, [userId]);
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    await updateDoc(doc(db, "users", userId), { pharmacist: { ...form } });
+    setPharmacist({ ...form });
+    setEditing(true);
+    setLoading(false);
+    alert("Pharmacist info saved!");
+  };
+
+  return (
+    <div style={{ marginTop: 40, background: "#f7f7f7", padding: 24, borderRadius: 10 }}>
+      <h3 style={{ color: "#7c3aed" }}>Manage Pharmacist</h3>
+      <form onSubmit={handleSubmit} style={{ marginBottom: 16 }}>
+        <input name="photo" value={form.photo} onChange={handleChange} placeholder="Photo URL" required style={{ width: "100%", marginBottom: 8 }} />
+        <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required style={{ width: "100%", marginBottom: 8 }} />
+        <input name="profession" value={form.profession} onChange={handleChange} placeholder="Profession" required style={{ width: "100%", marginBottom: 8 }} />
+        <input name="license" value={form.license} onChange={handleChange} placeholder="License Number" required style={{ width: "100%", marginBottom: 8 }} />
+        <input name="pharmacyName" value={form.pharmacyName} onChange={handleChange} placeholder="Pharmacy Name" required style={{ width: "100%", marginBottom: 8 }} />
+        <input name="languages" value={form.languages} onChange={handleChange} placeholder="Languages (comma separated)" required style={{ width: "100%", marginBottom: 8 }} />
+        <input name="whatsapp" value={form.whatsapp} onChange={handleChange} placeholder="WhatsApp Number (e.g. 2348012345678)" required style={{ width: "100%", marginBottom: 8 }} />
+        <button type="submit" disabled={loading} style={{ marginTop: 10 }}>{editing ? "Update Pharmacist" : "Add Pharmacist"}</button>
+      </form>
+      {pharmacist && (
+        <div style={{ marginTop: 16, background: "#fff", padding: 16, borderRadius: 8, boxShadow: "0 1px 4px #e0e0e0" }}>
+          <img src={pharmacist.photo} alt={pharmacist.name} style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover", marginBottom: 8 }} />
+          <div><b>{pharmacist.name}</b></div>
+          <div>{pharmacist.profession}</div>
+          <div>Pharmacy: {pharmacist.pharmacyName}</div>
+          <div>License: {pharmacist.license}</div>
+          <div>Languages: {pharmacist.languages}</div>
+          <div><a href={`https://wa.me/${pharmacist.whatsapp}`} target="_blank" rel="noopener noreferrer">Chat on WhatsApp</a></div>
+        </div>
       )}
     </div>
   );

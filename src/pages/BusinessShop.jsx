@@ -3,8 +3,55 @@ import { useEffect, useState } from "react";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { useParams } from "react-router-dom";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 export default function BusinessShop() {
+  const [showCartNotice, setShowCartNotice] = useState(false);
+  // Floating Talk to Pharmacist button
+  const PharmacistButton = () => {
+    if (!business?.pharmacist) return null;
+    const { name, photo, whatsapp } = business.pharmacist;
+    return (
+      <button
+        onClick={() => {
+          if (whatsapp) {
+            window.open(`https://wa.me/${whatsapp}`, '_blank');
+          }
+        }}
+        style={{
+          position: 'fixed',
+          top: '80px',
+          right: '32px',
+          background: '#fff',
+          color: '#7c3aed',
+          border: '1px solid #7c3aed',
+          borderRadius: '50px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
+          padding: '4px 10px 4px 8px',
+          fontWeight: 'bold',
+          fontSize: '13px',
+          zIndex: 1000,
+          cursor: 'pointer',
+          transition: 'box-shadow 0.2s',
+          opacity: 0.96,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}
+        onMouseOver={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.18)'}
+        onMouseOut={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.10)'}
+      >
+        {photo && (
+          <img src={photo} alt={name} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', marginRight: 6 }} />
+        )}
+        Talk to {name}
+      </button>
+    );
+  };
+  const [user, setUser] = useState(null);
+  const [addedMessage, setAddedMessage] = useState(null);
+  const auth = getAuth();
   const { slug } = useParams(); // e.g., sugarpharmacy
   const [business, setBusiness] = useState(null);
   const [medicines, setMedicines] = useState([]);
@@ -34,6 +81,13 @@ export default function BusinessShop() {
   };
 
   // --- Get user location ---
+  // --- Auth listener ---
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribeAuth();
+  }, [auth]);
   useEffect(() => {
     if (!navigator.geolocation) return;
 
@@ -143,8 +197,30 @@ export default function BusinessShop() {
 
   return (
     <div style={{ padding: "30px" }}>
+      {showCartNotice && (
+        <div style={{
+          position: 'fixed',
+          top: '30px',
+          right: '30px',
+          background: '#7c3aed',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 12px rgba(124,58,237,0.15)',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          zIndex: 2000,
+          opacity: 0.97,
+          transition: 'opacity 0.3s',
+        }}>
+          Added to cart! <a href="/cart" style={{ color: '#fff', textDecoration: 'underline', marginLeft: 10 }}>View Cart</a>
+        </div>
+      )}
+      <PharmacistButton />
       <h2>🩺 {business?.businessName || "Pharmacy"} Shop</h2>
       <p>Browse medicines below. Login only required for purchase.</p>
+
+      {/* Pharmacist Details removed, only floating button remains */}
 
       <div style={{ margin: "15px 0" }}>
         <input
@@ -182,6 +258,7 @@ export default function BusinessShop() {
                 background: "#fff",
                 boxShadow: "0 1px 6px rgba(0,0,0,0.1)",
                 position: "relative",
+                minHeight: "220px"
               }}
             >
               {p.image && (
@@ -197,11 +274,48 @@ export default function BusinessShop() {
                   }}
                 />
               )}
-              <strong>{p.name}</strong>
-              <p><em>{p.ingredient}</em></p>
-              <p>Class: {p.class}</p>
-              <p>Price: ₦{p.price}</p>
-
+              <strong>{p.name || "Unnamed Drug"}</strong>
+              <p><em>{p.ingredient || "No ingredient listed"}</em></p>
+              <p>Class: {p.class || "No class listed"}</p>
+              <p>Price: ₦{p.price !== undefined ? p.price : "N/A"}</p>
+              <p style={{ fontSize: "0.9em", color: "#555" }}>
+                🏥 {business?.businessName && business.businessName.trim() ? business.businessName : "Unknown Pharmacy"}
+              </p>
+              <button
+                onClick={async () => {
+                  if (!user) return alert("Please log in first");
+                  const cartRef = doc(db, "carts", user.uid);
+                  const cartSnap = await getDoc(cartRef);
+                  let newCart = cartSnap.exists() ? cartSnap.data().items || [] : [];
+                  const index = newCart.findIndex((i) => i.name === p.name);
+                  if (index >= 0) newCart[index].quantity += 1;
+                  else newCart.push({ ...p, quantity: 1 });
+                  await setDoc(cartRef, { items: newCart });
+                  setAddedMessage(p.id);
+                  setShowCartNotice(true);
+                  setTimeout(() => setShowCartNotice(false), 1800);
+                  setTimeout(() => setAddedMessage(null), 1000);
+                }}
+                style={{ marginTop: "10px" }}
+              >
+                Add to Cart
+              </button>
+              {addedMessage === p.id && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "10px",
+                    right: "10px",
+                    background: "#4caf50",
+                    color: "#fff",
+                    padding: "3px 6px",
+                    borderRadius: "4px",
+                    fontSize: "12px",
+                  }}
+                >
+                  Added!
+                </span>
+              )}
               {p.minutesAway !== Infinity && (
                 <p style={{ color: "#4caf50", fontWeight: "500", fontSize: "0.9em" }}>
                   {p.minutesAway <= 1 ? "📍 Right here" : `💨 ~${p.minutesAway} mins away`}

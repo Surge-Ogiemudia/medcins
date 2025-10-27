@@ -16,6 +16,7 @@
     "@emotion/styled": "^11.11.5",
     "@mui/material": "^5.15.15",
     "firebase": "^10.11.1",
+    "firebase-admin": "^13.5.0",
     "papaparse": "^5.5.3",
     "react-paystack": "^5.0.0",
     "react-router-dom": "^6.23.0"

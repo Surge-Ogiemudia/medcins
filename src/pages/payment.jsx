@@ -16,7 +16,8 @@ export default function Payment() {
   const [user, setUser] = useState(null);
   const [cart, setCart] = useState(location.state?.cart || []);
   const [subtotal, setSubtotal] = useState(location.state?.total || 0);
-  const [deliveryFee] = useState(500); // fixed delivery fee
+  const [deliveryType, setDeliveryType] = useState("standard");
+  const [deliveryFee, setDeliveryFee] = useState(500); // default standard
   const [pomFee, setPomFee] = useState(1000);
   const [grandTotal, setGrandTotal] = useState(subtotal + deliveryFee);
 
@@ -56,8 +57,8 @@ export default function Payment() {
 
   useEffect(() => {
     // Check for POM items
-    let pomFee = cart.some(item => item.isPOM) ? 500 : 0;
-    let delivery = deliveryFee;
+  let pomFee = cart.some(item => item.isPOM) ? 500 : 0;
+  let delivery = deliveryFee;
     let sub = subtotal;
     let discount = 0;
     if (couponData) {
@@ -68,6 +69,15 @@ export default function Payment() {
     setPomFee(pomFee);
     setGrandTotal(sub + pomFee + delivery - discount);
   }, [subtotal, deliveryFee, cart, couponData]);
+
+  // Update delivery fee when delivery type changes
+  useEffect(() => {
+    if (deliveryType === "standard") {
+      setDeliveryFee(500);
+    } else {
+      setDeliveryFee(3000);
+    }
+  }, [deliveryType]);
   const handleApplyCoupon = async () => {
     setCouponError("");
     const data = await validateCoupon(coupon.trim().toUpperCase());
@@ -156,6 +166,17 @@ export default function Payment() {
             ))}
           </ul>
           <p>Subtotal: ₦{subtotal}</p>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ fontWeight: 500 }}>Delivery Type:</label>
+            <select
+              value={deliveryType}
+              onChange={e => setDeliveryType(e.target.value)}
+              style={{ marginLeft: 10, padding: '6px', borderRadius: '5px' }}
+            >
+              <option value="standard">Standard Delivery (1-2 days) - ₦500</option>
+              <option value="express">Express Delivery (30mins-3hrs) - ₦3000</option>
+            </select>
+          </div>
           <p>Delivery Fee: ₦{couponData?.removeDelivery ? 0 : deliveryFee}</p>
           <p style={{ color: pomFee > 0 ? "#e53935" : undefined, fontWeight: pomFee > 0 ? 500 : undefined }}>
             POM Fee: ₦{couponData?.removePOM ? 0 : pomFee}

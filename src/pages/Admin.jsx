@@ -4,8 +4,95 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import { collection, doc, onSnapshot, deleteDoc, updateDoc, getDoc, query, where, getDocs, addDoc } from "firebase/firestore";
 import CouponManager from "../components/CouponManager";
+import DeliveryAgentManager from "../components/DeliveryAgentManager";
 
 export default function AdminDashboard() {
+  // List of all delivery agents for reassign dropdown (from deliveryAgents collection)
+  const [allAgents, setAllAgents] = useState([]);
+  useEffect(() => {
+    const fetchAgents = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'deliveryAgents'));
+        setAllAgents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        setAllAgents([]);
+      }
+    };
+    fetchAgents();
+  }, []);
+  // State to track which order's reassign dropdown is open
+  const [reassignDropdown, setReassignDropdown] = useState({});
+
+  // Handler to reassign order to a new rider
+  const handleReassignOrder = async (orderId, riderId) => {
+    try {
+      // Find the agent object for name and userId
+      const agent = allAgents.find(a => a.id === riderId);
+      const agentUserId = agent?.userId || '';
+      await updateDoc(doc(db, 'orders', orderId), {
+        riderId: agentUserId,
+        assignedAgentId: agentUserId,
+        assignedAgentName: agent ? (agent.companyName || agent.name || agent.email || agent.id) : '',
+        status: 'In-Progress',
+        assignedAt: new Date().toISOString(),
+      });
+      setReassignDropdown(prev => ({ ...prev, [orderId]: false }));
+    } catch (err) {
+      alert('Failed to reassign order.');
+    }
+  };
+  // Cancel order handler for admin
+  const handleCancelOrder = async (order) => {
+    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+    try {
+      await updateDoc(doc(db, 'orders', order.id), {
+        status: 'cancelled',
+        cancelledBy: 'admin',
+        cancelledAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      alert('Failed to cancel order.');
+    }
+  };
+  // Collapsible state for orders sections (pending, completed, cancelled)
+  const [openOrdersSection, setOpenOrdersSection] = useState({ pending: true, completed: true, cancelled: true });
+  // Medicine filter states (must be inside component)
+  const [medNameFilter, setMedNameFilter] = useState("");
+  const [medIngredientFilter, setMedIngredientFilter] = useState("");
+  const [medClassFilter, setMedClassFilter] = useState("");
+  const [medPharmacyFilter, setMedPharmacyFilter] = useState("");
+  // Per-order showAllItems state for pending orders
+  const [showAllItems, setShowAllItems] = useState({});
+  // Per-order showAllItems state for completed orders
+  const [showAllItemsCompleted, setShowAllItemsCompleted] = useState({});
+  // Block if inside a store slug or if user is customer
+  const path = window.location.pathname;
+  const storeMatch = path.match(/^\/store\/([^\/]+)/);
+  const [userRole, setUserRole] = React.useState(null);
+  useEffect(() => {
+    import("firebase/auth").then(({ getAuth, onAuthStateChanged }) => {
+      const auth = getAuth();
+      onAuthStateChanged(auth, async (u) => {
+        if (u) {
+          // Use dynamic import for firebase/firestore, but use ESM import for db
+          const { getDoc, doc } = await import("firebase/firestore");
+          const { db } = await import("../firebase");
+          const snap = await getDoc(doc(db, "users", u.uid));
+          setUserRole(snap.exists() ? snap.data().role : null);
+        } else {
+          setUserRole(null);
+        }
+      });
+    });
+  }, []);
+  if (storeMatch || userRole === "customer") {
+    return (
+      <div style={{padding: '40px', textAlign: 'center', color: '#7c3aed'}}>
+        <h2>Access Denied</h2>
+        <p>This page is only for business/admin users. Please use the store features.</p>
+      </div>
+    );
+  }
   // Distributor registration requests
   const [registrationRequests, setRegistrationRequests] = useState([]);
   useEffect(() => {
@@ -79,6 +166,7 @@ export default function AdminDashboard() {
   const [userData, setUserData] = useState(null);
   const [medicines, setMedicines] = useState([]);
   const [batches, setBatches] = useState([]);
+  const [batchSearch, setBatchSearch] = useState("");
   const [allUsers, setAllUsers] = useState([]);
   const [orders, setOrders] = useState([]);
   const [activeSection, setActiveSection] = useState("products"); // products | users | orders | medics
@@ -202,7 +290,25 @@ export default function AdminDashboard() {
   if (loading) return <p>Loading dashboard...</p>;
 
   // -------- Filtered Orders --------
-  const pendingOrders = orders.filter(o => o.status === "Processing");
+  // Show both Processing and In-Progress orders as pending
+  // Add search and sorting to pending orders
+  const filteredPendingOrders = orders
+    .filter(o => o.status === "Processing" || o.status === "In-Progress")
+    .filter(order => {
+      if (!orderSearch) return true;
+      const term = orderSearch.toLowerCase();
+      return (
+        (userMap[order.userId]?.email || order.userId).toLowerCase().includes(term) ||
+        order.items?.some(i => i.name.toLowerCase().includes(term))
+      );
+    })
+    .sort((a, b) => {
+      if (orderSort === "date-desc") return new Date(b.date) - new Date(a.date);
+      if (orderSort === "date-asc") return new Date(a.date) - new Date(b.date);
+      if (orderSort === "amount-desc") return (b.total || 0) - (a.total || 0);
+      if (orderSort === "amount-asc") return (a.total || 0) - (b.total || 0);
+      return 0;
+    });
   const completedOrders = orders.filter(o => o.status === "Completed");
   const filteredCompletedOrders = completedOrders
     .filter(order => {
@@ -245,39 +351,129 @@ export default function AdminDashboard() {
           ))}
         </div>
       )}
+
+    {/* -------- Section Tabs -------- */}
+    <div style={{ display: "flex", gap: "20px", margin: "20px 0", justifyContent: "center" }}>
+      <button onClick={()=>setActiveSection("products")} style={tabStyle(activeSection==="products")}>Manage Products</button>
+      <button onClick={()=>setActiveSection("users")} style={tabStyle(activeSection==="users")}>Manage Users</button>
+      <button onClick={()=>setActiveSection("orders")} style={tabStyle(activeSection==="orders")}>Manage Orders</button>
+      <button onClick={()=>setActiveSection("medics")} style={tabStyle(activeSection==="medics")}>Manage Medics</button>
+      <button onClick={()=>setActiveSection("deliveryagents")} style={tabStyle(activeSection==="deliveryagents")}>Manage DeliveryAgents</button>
+      <button onClick={()=>setActiveSection("coupons")} style={tabStyle(activeSection==="coupons")}>Manage Coupons</button>
+    </div>
+
+    <div style={{ padding: "0 30px" }}>
       <h2>🛠 Admin Dashboard</h2>
       <p>Logged in as: {user.email}</p>
 
-      {/* -------- Section Tabs -------- */}
-      <div style={{ display: "flex", gap: "20px", margin: "20px 0" }}>
-  <button onClick={()=>setActiveSection("products")} style={tabStyle(activeSection==="products")}>Manage Products</button>
-  <button onClick={()=>setActiveSection("users")} style={tabStyle(activeSection==="users")}>Manage Users</button>
-  <button onClick={()=>setActiveSection("orders")} style={tabStyle(activeSection==="orders")}>Manage Orders</button>
-  <button onClick={()=>setActiveSection("medics")} style={tabStyle(activeSection==="medics")}>Manage Medics</button>
-  <button onClick={()=>setActiveSection("coupons")} style={tabStyle(activeSection==="coupons")}>Manage Coupons</button>
-      </div>
+      {/* -------- DELIVERY AGENTS SECTION -------- */}
+      {activeSection==="deliveryagents" && <>
+        <h3>🚚 Manage Delivery Agents</h3>
+        <div style={{marginBottom:16}}>
+          <p>Here you can add, view, and manage delivery agents for your platform.</p>
+          <DeliveryAgentManager />
+        </div>
+      </>}
+      {/* ...existing code... */}
+    </div>
 
       {/* -------- PRODUCTS SECTION -------- */}
       {activeSection==="products" && <>
-        <h3>💊 Medicines</h3>
-        {medicines.length===0 ? <p>No medicines yet.</p> :
-        <table style={tableStyle}>
-          <thead>
-            <tr><th>Name</th><th>Ingredient</th><th>Class</th><th>Price (₦)</th><th>Uploaded By</th><th>Action</th></tr>
-          </thead>
-          <tbody>
-            {medicines.map(med => <tr key={med.id} style={trStyle}><td>{med.name}</td><td>{med.ingredient}</td><td>{med.class}</td><td>{med.price}</td><td>{userMap[med.ownerId]?.businessName || med.ownerId}</td><td><button onClick={()=>handleDeleteMedicine(med)}>Delete</button></td></tr>)}
-          </tbody>
-        </table>}
-
-        <h3 style={{marginTop:"30px"}}>📂 CSV Batches</h3>
+        <h3>📂 CSV Batches</h3>
+        <input
+          type="text"
+          placeholder="Search by pharmacy name..."
+          value={batchSearch}
+          onChange={e => setBatchSearch(e.target.value)}
+          style={{ marginBottom: 12, padding: "6px 12px", borderRadius: 6, border: "1px solid #ccc", width: 260 }}
+        />
         {batches.length===0 ? <p>No batches yet.</p> :
         <table style={tableStyle}>
           <thead>
             <tr><th>Batch Name</th><th>Date</th><th>Uploaded By</th><th>Medicines Count</th><th>Action</th></tr>
           </thead>
           <tbody>
-            {batches.map(batch => <tr key={batch.id} style={trStyle}><td>{batch.name}</td><td>{new Date(batch.date).toLocaleString()}</td><td>{userMap[batch.uploadedBy]?.businessName || batch.uploadedBy}</td><td>{batch.medicineIds?.length || 0}</td><td><button onClick={()=>handleDeleteBatch(batch)}>Delete</button></td></tr>)}
+            {batches
+              .filter(batch => {
+                if (!batchSearch) return true;
+                const name = (userMap[batch.uploadedBy]?.businessName || "").toLowerCase();
+                return name.includes(batchSearch.toLowerCase());
+              })
+              .map(batch => (
+                <tr key={batch.id} style={trStyle}>
+                  <td>{batch.name}</td>
+                  <td>{new Date(batch.date).toLocaleString()}</td>
+                  <td>{userMap[batch.uploadedBy]?.businessName || batch.uploadedBy}</td>
+                  <td>{batch.medicineIds?.length || 0}</td>
+                  <td><button onClick={()=>handleDeleteBatch(batch)}>Delete</button></td>
+                </tr>
+              ))}
+          </tbody>
+        </table>}
+
+        <h3 style={{marginTop:"30px"}}>💊 Medicines</h3>
+        {/* Advanced filter controls */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder="Filter by name..."
+            value={medNameFilter || ''}
+            onChange={e => setMedNameFilter(e.target.value)}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ccc', width: 160 }}
+          />
+          <input
+            type="text"
+            placeholder="Filter by ingredient..."
+            value={medIngredientFilter || ''}
+            onChange={e => setMedIngredientFilter(e.target.value)}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ccc', width: 160 }}
+          />
+          <select
+            value={medClassFilter || ''}
+            onChange={e => setMedClassFilter(e.target.value)}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ccc', width: 140 }}
+          >
+            <option value="">All Classes</option>
+            {[...new Set(medicines.map(m => m.class).filter(Boolean))].sort().map(cls => (
+              <option key={cls} value={cls}>{cls}</option>
+            ))}
+          </select>
+          <select
+            value={medPharmacyFilter || ''}
+            onChange={e => setMedPharmacyFilter(e.target.value)}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #ccc', width: 180 }}
+          >
+            <option value="">All Pharmacies</option>
+            {[...new Set(medicines.map(m => m.ownerId).filter(Boolean))]
+              .map(ownerId => (
+                <option key={ownerId} value={ownerId}>{userMap[ownerId]?.businessName || ownerId}</option>
+              ))}
+          </select>
+        </div>
+        {medicines.length===0 ? <p>No medicines yet.</p> :
+        <table style={tableStyle}>
+          <thead>
+            <tr><th>Name</th><th>Ingredient</th><th>Class</th><th>Price (₦)</th><th>Uploaded By</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            {medicines
+              .filter(med => {
+                if (medNameFilter && !med.name?.toLowerCase().includes(medNameFilter.toLowerCase())) return false;
+                if (medIngredientFilter && !med.ingredient?.toLowerCase().includes(medIngredientFilter.toLowerCase())) return false;
+                if (medClassFilter && med.class !== medClassFilter) return false;
+                if (medPharmacyFilter && med.ownerId !== medPharmacyFilter) return false;
+                return true;
+              })
+              .map(med => (
+                <tr key={med.id} style={trStyle}>
+                  <td>{med.name}</td>
+                  <td>{med.ingredient}</td>
+                  <td>{med.class}</td>
+                  <td>{med.price}</td>
+                  <td>{userMap[med.ownerId]?.businessName || med.ownerId}</td>
+                  <td><button onClick={()=>handleDeleteMedicine(med)}>Delete</button></td>
+                </tr>
+              ))}
           </tbody>
         </table>}
       </>}
@@ -312,98 +508,409 @@ export default function AdminDashboard() {
 
       {/* -------- ORDERS SECTION -------- */}
       {activeSection==="orders" && <>
-        <h3>📦 Pending / Processing Orders</h3>
-        {pendingOrders.length===0 ? <p>No pending orders.</p> :
-        pendingOrders.map(order=> {
-          const hasPOM = order.items?.some(i => i.isPOM);
-          return (
-            <div key={order.id} style={orderCardStyle}>
-              <div style={{display:"flex", justifyContent:"space-between",alignItems:"center"}}>
-                <p><strong>Order Date:</strong> {new Date(order.date).toLocaleString()}</p>
-                <button onClick={()=>toggleOrder(order.id)}>{expandedOrders[order.id] ? "Hide Items" : "View Items"}</button>
+        {/* Pending / Processing Orders Collapsible */}
+        <div style={{marginBottom: '18px', border: '1px solid #ddd', borderRadius: 8, background: '#fafbfc'}}>
+          <div
+            style={{cursor:'pointer',padding:'14px 18px',fontWeight:'bold',fontSize:18,display:'flex',alignItems:'center',userSelect:'none'}}
+            onClick={()=>setOpenOrdersSection(s=>({...s,pending:!s.pending}))}
+          >
+            <span style={{marginRight:8}}>{openOrdersSection.pending ? '▼' : '▶'}</span>
+            📦 Pending / Processing Orders
+          </div>
+          {openOrdersSection.pending && (
+            <div style={{padding:'0 18px 18px 18px'}}>
+              {/* Sorting/Filtering Controls (copied from Completed Orders) */}
+              <div style={{ margin: "20px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  type="text"
+                  placeholder="Search by user or drug name..."
+                  value={orderSearch}
+                  onChange={e => setOrderSearch(e.target.value)}
+                  style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ccc", width: 220 }}
+                />
+                <select value={orderSort} onChange={e => setOrderSort(e.target.value)} style={{ padding: "6px 12px", borderRadius: 6 }}>
+                  <option value="date-desc">Newest First</option>
+                  <option value="date-asc">Oldest First</option>
+                  <option value="amount-desc">Highest Amount</option>
+                  <option value="amount-asc">Lowest Amount</option>
+                </select>
+                {/* Date Range Filter */}
+                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{padding:'6px 12px', borderRadius:6}} />
+                <span>to</span>
+                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{padding:'6px 12px', borderRadius:6}} />
+                {/* Medic Filter */}
+                <select value={medicFilter} onChange={e => setMedicFilter(e.target.value)} style={{padding:'6px 12px', borderRadius:6}}>
+                  <option value="">All Medics</option>
+                  {[...verifyMedics, ...consultMedics].map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.profession})</option>
+                  ))}
+                </select>
+                {/* Product Filter */}
+                <input type="text" value={productFilter} onChange={e => setProductFilter(e.target.value)} placeholder="Product name" style={{padding:'6px 12px', borderRadius:6}} />
+                {/* POM Filter */}
+                <select value={pomFilter} onChange={e => setPomFilter(e.target.value)} style={{padding:'6px 12px', borderRadius:6}}>
+                  <option value="">All Orders</option>
+                  <option value="true">POM Only</option>
+                  <option value="false">Non-POM Only</option>
+                </select>
+                {/* Download Button */}
+                <button onClick={handleDownloadOrders} style={{padding:'8px 18px', borderRadius:6, background:'#007bff', color:'#fff', fontWeight:'bold'}}>Download CSV</button>
               </div>
-              <p><strong>User Email:</strong> {userMap[order.userId]?.email || order.userId}</p>
-              {expandedOrders[order.id] && order.items?.length>0 &&
-                <ul>{order.items.map((i,idx)=><li key={idx}>{i.name} - ₦{i.price} x {i.quantity||1}</li>)}</ul>}
-              <p><strong>Total:</strong> ₦{calculateTotal(order.items||[])}
-                {hasPOM && <span style={{ color: "#e53935", marginLeft: 10 }}>[POM]</span>}
-              </p>
-              {hasPOM && (
-                <div style={{ margin: "10px 0" }}>
-                  <label><strong>Medic Verified By:</strong></label>
-                  <select value={selectedMedic} onChange={e => setSelectedMedic(e.target.value)} style={{ marginLeft: 10 }}>
-                    <option value="">Select Medic</option>
+              {/* Pending Orders List */}
+              {filteredPendingOrders.length===0 ? <p>No pending orders.</p> :
+                filteredPendingOrders.map(order=> {
+                  const hasPOM = order.items?.some(i => i.isPOM);
+                  const customerAddress = order.deliveryInfo ? `${order.deliveryInfo.address || ''}, ${order.deliveryInfo.city || ''}, ${order.deliveryInfo.state || ''}` : 'N/A';
+                  const customerLat = order.deliveryInfo && order.deliveryInfo.lat ? order.deliveryInfo.lat : null;
+                  const customerLng = order.deliveryInfo && order.deliveryInfo.lng ? order.deliveryInfo.lng : null;
+                  let businessAddress = 'N/A';
+                  let businessLat = null;
+                  let businessLng = null;
+                  if (order.businessId && userMap[order.businessId]) {
+                    const b = userMap[order.businessId];
+                    businessAddress = `${b.address || ''}, ${b.city || ''}, ${b.state || ''}`;
+                    businessLat = b.lat || null;
+                    businessLng = b.lng || null;
+                  }
+                  const itemsToShow = expandedOrders[order.id] ? (showAllItems[order.id] ? order.items : order.items?.slice(0, 3)) : [];
+                  const hasMoreItems = order.items && order.items.length > 3;
+                  return (
+                    <div key={order.id} style={orderCardStyle}>
+                      <div style={{display:"flex", justifyContent:"space-between",alignItems:"center"}}>
+                        <p><strong>Order Date:</strong> {new Date(order.date).toLocaleString()}</p>
+                        <button onClick={()=>toggleOrder(order.id)}>{expandedOrders[order.id] ? "Hide Items" : "Show Items"}</button>
+                      </div>
+                      <p><strong>User Email:</strong> {userMap[order.userId]?.email || order.userId}</p>
+                      <p><strong>Customer Address:</strong> {
+                        (!order.deliveryInfo || 
+                          (!order.deliveryInfo.address && !order.deliveryInfo.city && !order.deliveryInfo.state))
+                          ? <span style={{color:'red',fontWeight:600}}>⚠️ Address missing for this order</span>
+                          : customerAddress
+                      }</p>
+                      <p><strong>Customer Coordinates:</strong> {customerLat && customerLng ? `${customerLat}, ${customerLng}` : 'N/A'}</p>
+                      <p><strong>Business Address:</strong> {businessAddress}</p>
+                      <p><strong>Business Coordinates:</strong> {businessLat && businessLng ? `${businessLat}, ${businessLng}` : 'N/A'}</p>
+                      {/* Rider assigned info */}
+                      <p><strong>Rider assigned:</strong> {
+                        <span style={{display:'inline-flex',alignItems:'center'}}>
+                          {(() => {
+                            // Prefer riderId, fallback to assignedAgentId
+                            const agentId = order.riderId || order.assignedAgentId;
+                            let agent = null;
+                            if (agentId && userMap[agentId]) {
+                              agent = userMap[agentId];
+                              return `${agent.companyName || agent.name || agent.email || agentId}${(agent.phoneNumber || agent.whatsappNumber) ? ` (${[agent.phoneNumber, agent.whatsappNumber].filter(Boolean).join(' / ')})` : ''}`;
+                            } else if (agentId && allAgents.length) {
+                              agent = allAgents.find(a => a.id === agentId);
+                              if (agent) {
+                                return `${agent.companyName || agent.name || agent.id}${(agent.phoneNumber || agent.whatsappNumber) ? ` (${[agent.phoneNumber, agent.whatsappNumber].filter(Boolean).join(' / ')})` : ''}`;
+                              }
+                              return agentId;
+                            } else if (agentId) {
+                              return agentId;
+                            } else {
+                              return <span style={{color:'#e53935'}}>No rider assigned</span>;
+                            }
+                          })()}
+                          <button
+                            style={{marginLeft:10, background:'none', border:'none', color:'#007bff', cursor:'pointer', display:'inline-flex', alignItems:'center', fontWeight:'bold'}}
+                            onClick={() => setReassignDropdown(prev => ({ ...prev, [order.id]: !prev[order.id] }))}
+                          >
+                            <span style={{fontSize:18, marginRight:4}}>&#x21bb;</span> reassign order
+                          </button>
+                          {reassignDropdown[order.id] && (
+                            <select
+                              style={{marginLeft:10, padding:'6px 12px', borderRadius:6}}
+                              defaultValue=""
+                              onChange={e => {
+                                if (e.target.value) handleReassignOrder(order.id, e.target.value);
+                              }}
+                            >
+                              <option value="">Select new rider</option>
+                              {allAgents.map(agent => (
+                                <option key={agent.id} value={agent.id}>
+                                  {agent.companyName || agent.name || agent.email || agent.id}
+                                  {(agent.phoneNumber || agent.whatsappNumber) ? ` (${[agent.phoneNumber, agent.whatsappNumber].filter(Boolean).join(' / ')})` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </span>
+                      }
+                      <p><strong>Order Status:</strong> {
+                        (() => {
+                          if ((!order.riderId && !order.assignedAgentId)) {
+                            return <span style={{color:'#e53935'}}>Processing (no rider accepted)</span>;
+                          }
+                          if (order.status === 'cancelled' && order.cancelledBy === 'rider') {
+                            return <span style={{color:'#e53935'}}>Canceled by rider</span>;
+                          }
+                          if (order.deliveredByRider) {
+                            return <span style={{color:'#27c93f'}}>Delivered by rider</span>;
+                          }
+                          // Only show 'Completed' if admin marks it so
+                          if (order.status === 'Completed') {
+                            return <span style={{color:'#27c93f'}}>Completed (admin)</span>;
+                          }
+                          // If rider assigned and not completed/cancelled
+                          if ((order.riderId || order.assignedAgentId) && order.status !== 'Completed' && order.status !== 'cancelled') {
+                            return <span style={{color:'#007bff'}}>Progressing (rider accepted)</span>;
+                          }
+                          // fallback
+                          return order.status;
+                        })()
+                      }</p>
+                      {/* end rider assigned + order status */}
+                      </p>
+                      {expandedOrders[order.id] && order.items?.length > 0 && (
+                        <div>
+                          <ul style={{ maxHeight: showAllItems[order.id] ? 'none' : 120, overflowY: hasMoreItems && !showAllItems[order.id] ? 'hidden' : 'auto', marginBottom: 4 }}>
+                            {itemsToShow.map((i, idx) => (
+                              <li key={idx}>{i.name} - ₦{i.price} x {i.quantity||1}</li>
+                            ))}
+                          </ul>
+                          {hasMoreItems && (
+                            <button style={{ fontSize: 12, marginBottom: 8 }} onClick={() => setShowAllItems(prev => ({ ...prev, [order.id]: !prev[order.id] }))}>
+                              {showAllItems[order.id] ? 'Show Less' : `Show All (${order.items.length})`}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <p><strong>Total:</strong> ₦{calculateTotal(order.items||[])}
+                        {hasPOM && <span style={{ color: "#e53935", marginLeft: 10 }}>[POM]</span>}
+                      </p>
+                      {hasPOM && (
+                        <div style={{ margin: "10px 0" }}>
+                          <label><strong>Medic Verified By:</strong></label>
+                          <select value={selectedMedic} onChange={e => setSelectedMedic(e.target.value)} style={{ marginLeft: 10 }}>
+                            <option value="">Select Medic</option>
+                            {[...verifyMedics, ...consultMedics].map(m => (
+                              <option key={m.id} value={m.id}>{m.name} ({m.profession}) - {m.type}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                      <button onClick={()=>completeOrder(order)}>Mark as Completed</button>
+                      <button style={{marginLeft:8, background:'#e53935', color:'#fff', borderRadius:6, padding:'6px 14px', border:'none', fontWeight:'bold'}} onClick={()=>handleCancelOrder(order)}>Cancel Order</button>
+                      {order.completedAt && (
+                        <p style={{ fontSize: 13, color: '#555', marginTop: 6 }}>
+                          Completed: {new Date(order.completedAt).toLocaleString()}<br/>
+                          {order.medicVerifiedBy && <span>Verified by: {verifyMedics.find(m => m.id === order.medicVerifiedBy)?.name || order.medicVerifiedBy}</span>}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+
+        {/* Completed Orders Collapsible */}
+        <div style={{marginBottom: '18px', border: '1px solid #ddd', borderRadius: 8, background: '#fafbfc'}}>
+          <div
+            style={{cursor:'pointer',padding:'14px 18px',fontWeight:'bold',fontSize:18,display:'flex',alignItems:'center',userSelect:'none'}}
+            onClick={()=>setOpenOrdersSection(s=>({...s,completed:!s.completed}))}
+          >
+            <span style={{marginRight:8}}>{openOrdersSection.completed ? '▼' : '▶'}</span>
+            ✅ Completed Orders (You)
+          </div>
+          {openOrdersSection.completed && (
+            <>
+              <div style={{ margin: "20px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  type="text"
+                  placeholder="Search by user or drug name..."
+                  value={orderSearch}
+                  onChange={e => setOrderSearch(e.target.value)}
+                  style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ccc", width: 220 }}
+                />
+                <select value={orderSort} onChange={e => setOrderSort(e.target.value)} style={{ padding: "6px 12px", borderRadius: 6 }}>
+                  <option value="date-desc">Newest First</option>
+                  <option value="date-asc">Oldest First</option>
+                  <option value="amount-desc">Highest Amount</option>
+                  <option value="amount-asc">Lowest Amount</option>
+                </select>
+                {/* Date Range Filter */}
+                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{padding:'6px 12px', borderRadius:6}} />
+                <span>to</span>
+                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{padding:'6px 12px', borderRadius:6}} />
+                {/* Medic Filter */}
+                <select value={medicFilter} onChange={e => setMedicFilter(e.target.value)} style={{padding:'6px 12px', borderRadius:6}}>
+                  <option value="">All Medics</option>
+                  {[...verifyMedics, ...consultMedics].map(m => (
+                    <option key={m.id} value={m.id}>{m.name} ({m.profession})</option>
+                  ))}
+                </select>
+                {/* Product Filter */}
+                <input type="text" value={productFilter} onChange={e => setProductFilter(e.target.value)} placeholder="Product name" style={{padding:'6px 12px', borderRadius:6}} />
+                {/* POM Filter */}
+                <select value={pomFilter} onChange={e => setPomFilter(e.target.value)} style={{padding:'6px 12px', borderRadius:6}}>
+                  <option value="">All Orders</option>
+                  <option value="true">POM Only</option>
+                  <option value="false">Non-POM Only</option>
+                </select>
+                {/* Download Button */}
+                <button onClick={handleDownloadOrders} style={{padding:'8px 18px', borderRadius:6, background:'#007bff', color:'#fff', fontWeight:'bold'}}>Download CSV</button>
+              </div>
+              {filteredCompletedOrders.length === 0 ? <p>No completed orders found.</p> :
+                filteredCompletedOrders.map(order => {
+                  const customerAddress = order.deliveryInfo ? `${order.deliveryInfo.address || ''}, ${order.deliveryInfo.city || ''}, ${order.deliveryInfo.state || ''}` : 'N/A';
+                  const customerLat = order.deliveryInfo && order.deliveryInfo.lat ? order.deliveryInfo.lat : null;
+                  const customerLng = order.deliveryInfo && order.deliveryInfo.lng ? order.deliveryInfo.lng : null;
+                  let businessAddress = 'N/A';
+                  let businessLat = null;
+                  let businessLng = null;
+                  if (order.businessId && userMap[order.businessId]) {
+                    const b = userMap[order.businessId];
+                    businessAddress = `${b.address || ''}, ${b.city || ''}, ${b.state || ''}`;
+                    businessLat = b.lat || null;
+                    businessLng = b.lng || null;
+                  }
+                  const itemsToShow = expandedOrders[order.id] ? (showAllItemsCompleted[order.id] ? order.items : order.items?.slice(0, 3)) : [];
+                  const hasMoreItems = order.items && order.items.length > 3;
+                  return (
+                    <div key={order.id} style={orderCardStyle}>
+                      <div style={{display:"flex", justifyContent:"space-between",alignItems:"center"}}>
+                        <p><strong>Order Date:</strong> {new Date(order.completedAt || order.date).toLocaleString()}</p>
+                        <button onClick={()=>toggleOrder(order.id)}>{expandedOrders[order.id] ? "Hide Details" : "Show Details"}</button>
+                      </div>
+                      <p><strong>User Email:</strong> {userMap[order.userId]?.email || order.userId}</p>
+                      <p><strong>Customer Address:</strong> {
+                        (!order.deliveryInfo ||
+                          (!order.deliveryInfo.address && !order.deliveryInfo.city && !order.deliveryInfo.state))
+                          ? <span style={{color:'red',fontWeight:600}}>⚠️ Address missing for this order</span>
+                          : customerAddress
+                      }</p>
+                      <p><strong>Customer Coordinates:</strong> {customerLat && customerLng ? `${customerLat}, ${customerLng}` : 'N/A'}</p>
+                      <p><strong>Business Address:</strong> {businessAddress}</p>
+                      <p><strong>Business Coordinates:</strong> {businessLat && businessLng ? `${businessLat}, ${businessLng}` : 'N/A'}</p>
+                      {expandedOrders[order.id] && order.items?.length > 0 && (
+                        <div>
+                          <ul style={{ maxHeight: showAllItemsCompleted[order.id] ? 'none' : 120, overflowY: hasMoreItems && !showAllItemsCompleted[order.id] ? 'hidden' : 'auto', marginBottom: 4 }}>
+                            {itemsToShow.map((i, idx) => (
+                              <li key={idx}>{i.name} - ₦{i.price} x {i.quantity||1}</li>
+                            ))}
+                          </ul>
+                          {hasMoreItems && (
+                            <button style={{ fontSize: 12, marginBottom: 8 }} onClick={() => setShowAllItemsCompleted(prev => ({ ...prev, [order.id]: !prev[order.id] }))}>
+                              {showAllItemsCompleted[order.id] ? 'Show Less' : `Show All (${order.items.length})`}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <p><strong>Total:</strong> ₦{order.total || calculateTotal(order.items || [])}</p>
+                      {order.medicVerifiedBy && <p><strong>Verified by:</strong> {verifyMedics.concat(consultMedics).find(m => m.id === order.medicVerifiedBy)?.name || order.medicVerifiedBy}</p>}
+                      {order.completedAt && <p style={{ fontSize: 13, color: '#555', marginTop: 6 }}>Completed: {new Date(order.completedAt).toLocaleString()}</p>}
+                    </div>
+                  );
+                })
+              }
+            </>
+          )}
+        </div>
+
+          {/* Cancelled Orders Collapsible */}
+          <div style={{marginBottom: '18px', border: '1px solid #ddd', borderRadius: 8, background: '#fafbfc'}}>
+            <div
+              style={{cursor:'pointer',padding:'14px 18px',fontWeight:'bold',fontSize:18,display:'flex',alignItems:'center',userSelect:'none'}}
+              onClick={()=>setOpenOrdersSection(s=>({...s,cancelled:!s.cancelled}))}
+            >
+              <span style={{marginRight:8}}>{openOrdersSection.cancelled ? '▼' : '▶'}</span>
+              ❌ Cancelled Orders
+            </div>
+            {openOrdersSection.cancelled && (
+              <>
+                <div style={{ margin: "20px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                  <input
+                    type="text"
+                    placeholder="Search by user or drug name..."
+                    value={orderSearch}
+                    onChange={e => setOrderSearch(e.target.value)}
+                    style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ccc", width: 220 }}
+                  />
+                  <select value={orderSort} onChange={e => setOrderSort(e.target.value)} style={{ padding: "6px 12px", borderRadius: 6 }}>
+                    <option value="date-desc">Newest First</option>
+                    <option value="date-asc">Oldest First</option>
+                    <option value="amount-desc">Highest Amount</option>
+                    <option value="amount-asc">Lowest Amount</option>
+                  </select>
+                  {/* Date Range Filter */}
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{padding:'6px 12px', borderRadius:6}} />
+                  <span>to</span>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{padding:'6px 12px', borderRadius:6}} />
+                  {/* Medic Filter */}
+                  <select value={medicFilter} onChange={e => setMedicFilter(e.target.value)} style={{padding:'6px 12px', borderRadius:6}}>
+                    <option value="">All Medics</option>
                     {[...verifyMedics, ...consultMedics].map(m => (
-                      <option key={m.id} value={m.id}>{m.name} ({m.profession}) - {m.type}</option>
+                      <option key={m.id} value={m.id}>{m.name} ({m.profession})</option>
                     ))}
                   </select>
+                  {/* Product Filter */}
+                  <input type="text" value={productFilter} onChange={e => setProductFilter(e.target.value)} placeholder="Product name" style={{padding:'6px 12px', borderRadius:6}} />
+                  {/* POM Filter */}
+                  <select value={pomFilter} onChange={e => setPomFilter(e.target.value)} style={{padding:'6px 12px', borderRadius:6}}>
+                    <option value="">All Orders</option>
+                    <option value="true">POM Only</option>
+                    <option value="false">Non-POM Only</option>
+                  </select>
+                  {/* Download Button */}
+                  <button onClick={handleDownloadOrders} style={{padding:'8px 18px', borderRadius:6, background:'#007bff', color:'#fff', fontWeight:'bold'}}>Download CSV</button>
                 </div>
-              )}
-              <button onClick={()=>completeOrder(order)}>Mark as Completed</button>
-              {order.completedAt && (
-                <p style={{ fontSize: 13, color: '#555', marginTop: 6 }}>
-                  Completed: {new Date(order.completedAt).toLocaleString()}<br/>
-                  {order.medicVerifiedBy && <span>Verified by: {verifyMedics.find(m => m.id === order.medicVerifiedBy)?.name || order.medicVerifiedBy}</span>}
-                </p>
-              )}
-            </div>
-          );
-        })}
-
-        <h3 style={{marginTop:"30px"}}>✅ Completed Orders (You)</h3>
-        <div style={{ margin: "20px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            type="text"
-            placeholder="Search by user or drug name..."
-            value={orderSearch}
-            onChange={e => setOrderSearch(e.target.value)}
-            style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ccc", width: 220 }}
-          />
-          <select value={orderSort} onChange={e => setOrderSort(e.target.value)} style={{ padding: "6px 12px", borderRadius: 6 }}>
-            <option value="date-desc">Newest First</option>
-            <option value="date-asc">Oldest First</option>
-            <option value="amount-desc">Highest Amount</option>
-            <option value="amount-asc">Lowest Amount</option>
-          </select>
-          {/* Date Range Filter */}
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{padding:'6px 12px', borderRadius:6}} />
-          <span>to</span>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{padding:'6px 12px', borderRadius:6}} />
-          {/* Medic Filter */}
-          <select value={medicFilter} onChange={e => setMedicFilter(e.target.value)} style={{padding:'6px 12px', borderRadius:6}}>
-            <option value="">All Medics</option>
-            {[...verifyMedics, ...consultMedics].map(m => (
-              <option key={m.id} value={m.id}>{m.name} ({m.profession})</option>
-            ))}
-          </select>
-          {/* Product Filter */}
-          <input type="text" value={productFilter} onChange={e => setProductFilter(e.target.value)} placeholder="Product name" style={{padding:'6px 12px', borderRadius:6}} />
-          {/* POM Filter */}
-          <select value={pomFilter} onChange={e => setPomFilter(e.target.value)} style={{padding:'6px 12px', borderRadius:6}}>
-            <option value="">All Orders</option>
-            <option value="true">POM Only</option>
-            <option value="false">Non-POM Only</option>
-          </select>
-          {/* Download Button */}
-          <button onClick={handleDownloadOrders} style={{padding:'8px 18px', borderRadius:6, background:'#007bff', color:'#fff', fontWeight:'bold'}}>Download CSV</button>
-        </div>
-        {filteredCompletedOrders.length === 0 ? <p>No completed orders found.</p> :
-          filteredCompletedOrders.map(order => (
-            <div key={order.id} style={orderCardStyle}>
-              <div style={{display:"flex", justifyContent:"space-between",alignItems:"center"}}>
-                <p><strong>Order Date:</strong> {new Date(order.completedAt || order.date).toLocaleString()}</p>
-                <button onClick={()=>toggleOrder(order.id)}>{expandedOrders[order.id] ? "Hide Details" : "View Details"}</button>
-              </div>
-              <p><strong>User Email:</strong> {userMap[order.userId]?.email || order.userId}</p>
-              <p><strong>Amount:</strong> ₦{order.total || calculateTotal(order.items || [])}</p>
-              <p><strong>Drugs:</strong> {order.items?.map(i => `${i.name} (${i.quantity || 1})`).join(", ")}</p>
-              {expandedOrders[order.id] && (
-                <ul style={{ marginTop: 8 }}>{order.items.map((i,idx)=><li key={idx}>{i.name} - ₦{i.price} x {i.quantity||1}</li>)}</ul>
-              )}
-              {order.medicVerifiedBy && <p><strong>Verified by:</strong> {verifyMedics.concat(consultMedics).find(m => m.id === order.medicVerifiedBy)?.name || order.medicVerifiedBy}</p>}
-              {order.completedAt && <p style={{ fontSize: 13, color: '#555', marginTop: 6 }}>Completed: {new Date(order.completedAt).toLocaleString()}</p>}
-            </div>
-          ))}
+                {orders.filter(o => o.status === 'cancelled' && o.cancelledBy === 'admin').length === 0 ? <p>No cancelled orders found.</p> :
+                  orders.filter(o => o.status === 'cancelled' && o.cancelledBy === 'admin').map(order => {
+                    const customerAddress = order.deliveryInfo ? `${order.deliveryInfo.address || ''}, ${order.deliveryInfo.city || ''}, ${order.deliveryInfo.state || ''}` : 'N/A';
+                    const customerLat = order.deliveryInfo && order.deliveryInfo.lat ? order.deliveryInfo.lat : null;
+                    const customerLng = order.deliveryInfo && order.deliveryInfo.lng ? order.deliveryInfo.lng : null;
+                    let businessAddress = 'N/A';
+                    let businessLat = null;
+                    let businessLng = null;
+                    if (order.businessId && userMap[order.businessId]) {
+                      const b = userMap[order.businessId];
+                      businessAddress = `${b.address || ''}, ${b.city || ''}, ${b.state || ''}`;
+                      businessLat = b.lat || null;
+                      businessLng = b.lng || null;
+                    }
+                    const itemsToShow = expandedOrders[order.id] ? (showAllItemsCompleted[order.id] ? order.items : order.items?.slice(0, 3)) : [];
+                    const hasMoreItems = order.items && order.items.length > 3;
+                    return (
+                      <div key={order.id} style={orderCardStyle}>
+                        <div style={{display:"flex", justifyContent:"space-between",alignItems:"center"}}>
+                          <p><strong>Order Date:</strong> {new Date(order.cancelledAt || order.date).toLocaleString()}</p>
+                          <button onClick={()=>toggleOrder(order.id)}>{expandedOrders[order.id] ? "Hide Details" : "Show Details"}</button>
+                        </div>
+                        <p><strong>User Email:</strong> {userMap[order.userId]?.email || order.userId}</p>
+                        <p><strong>Customer Address:</strong> {
+                          (!order.deliveryInfo ||
+                            (!order.deliveryInfo.address && !order.deliveryInfo.city && !order.deliveryInfo.state))
+                            ? <span style={{color:'red',fontWeight:600}}>⚠️ Address missing for this order</span>
+                            : customerAddress
+                        }</p>
+                        <p><strong>Customer Coordinates:</strong> {customerLat && customerLng ? `${customerLat}, ${customerLng}` : 'N/A'}</p>
+                        <p><strong>Business Address:</strong> {businessAddress}</p>
+                        <p><strong>Business Coordinates:</strong> {businessLat && businessLng ? `${businessLat}, ${businessLng}` : 'N/A'}</p>
+                        {expandedOrders[order.id] && order.items?.length > 0 && (
+                          <div>
+                            <ul style={{ maxHeight: showAllItemsCompleted[order.id] ? 'none' : 120, overflowY: hasMoreItems && !showAllItemsCompleted[order.id] ? 'hidden' : 'auto', marginBottom: 4 }}>
+                              {itemsToShow.map((i, idx) => (
+                                <li key={idx}>{i.name} - ₦{i.price} x {i.quantity||1}</li>
+                              ))}
+                            </ul>
+                            {hasMoreItems && (
+                              <button style={{ fontSize: 12, marginBottom: 8 }} onClick={() => setShowAllItemsCompleted(prev => ({ ...prev, [order.id]: !prev[order.id] }))}>
+                                {showAllItemsCompleted[order.id] ? 'Show Less' : `Show All (${order.items.length})`}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        <p><strong>Total:</strong> ₦{order.total || calculateTotal(order.items || [])}</p>
+                        {order.cancelledAt && <p style={{ fontSize: 13, color: '#e53935', marginTop: 6 }}>Cancelled: {new Date(order.cancelledAt).toLocaleString()}</p>}
+                      </div>
+                    );
+                  })
+                }
+              </>
+            )}
+          </div>
       </>}
 
       {/* -------- MEDICS SECTION -------- */}
@@ -454,6 +961,7 @@ function UserDetail({user, medicines, orders, onClose}){
 function MedicsSection() {
   const [verifyMedics, setVerifyMedics] = React.useState([]);
   const [consultMedics, setConsultMedics] = React.useState([]);
+  const [businessPharmacists, setBusinessPharmacists] = React.useState([]);
   const [form, setForm] = React.useState({
     section: "verify",
     photo: "",
@@ -472,6 +980,21 @@ function MedicsSection() {
       setVerifyMedics(verifySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       const consultSnap = await getDocs(collection(db, "consultMedics"));
       setConsultMedics(consultSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+      // Fetch business pharmacists
+      const usersSnap = await getDocs(collection(db, "users"));
+      const pharmacists = [];
+      usersSnap.docs.forEach((d) => {
+        const data = d.data();
+        if (data.role === "medicine-manager" && data.pharmacist) {
+          pharmacists.push({
+            ...data.pharmacist,
+            id: d.id,
+            online: true // or false if you want
+          });
+        }
+      });
+      setBusinessPharmacists(pharmacists);
     };
     fetchMedics();
   }, []);
@@ -500,6 +1023,7 @@ function MedicsSection() {
       name: form.name,
       profession: form.profession,
       license: form.license,
+      pharmacyName: form.pharmacyName,
       languages: form.languages.split(",").map(l => l.trim()),
       whatsapp: form.whatsapp
     };
@@ -509,7 +1033,7 @@ function MedicsSection() {
     } else {
       await addDoc(collection(db, col), data);
     }
-    setForm({ section: "verify", photo: "", name: "", profession: "", license: "", languages: "", whatsapp: "" });
+    setForm({ section: "verify", photo: "", name: "", profession: "", license: "", pharmacyName: "", languages: "", whatsapp: "" });
     setEditing(null);
     setLoading(false);
     window.location.reload();
@@ -527,93 +1051,112 @@ function MedicsSection() {
         <input name="name" value={form.name} onChange={handleChange} placeholder="Name" required style={{ width: "100%", marginBottom: 8 }} />
         <input name="profession" value={form.profession} onChange={handleChange} placeholder="Profession" required style={{ width: "100%", marginBottom: 8 }} />
         <input name="license" value={form.license} onChange={handleChange} placeholder="License Number" required style={{ width: "100%", marginBottom: 8 }} />
+        <input name="pharmacyName" value={form.pharmacyName || ""} onChange={handleChange} placeholder="Pharmacy Name" required style={{ width: "100%", marginBottom: 8 }} />
         <input name="languages" value={form.languages} onChange={handleChange} placeholder="Languages (comma separated)" required style={{ width: "100%", marginBottom: 8 }} />
         <input name="whatsapp" value={form.whatsapp} onChange={handleChange} placeholder="WhatsApp Number (e.g. 2348012345678)" required style={{ width: "100%", marginBottom: 8 }} />
         <button type="submit" disabled={loading} style={{ marginTop: 10 }}>Add Medic</button>
       </form>
       <h4>Verify Prescription Medics</h4>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-        {[...verifyMedics].sort((a, b) => (b.online === true) - (a.online === true)).map(m => (
-          <div key={m.id} style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, width: 220, background: "#fff", position: "relative" }}>
-            {/* Online/Offline Dot */}
-            <span
-              onClick={() => toggleOnline("verify", m)}
-              title={m.online ? "Online" : "Offline"}
-              style={{
-                position: "absolute",
-                top: 8,
-                right: 32,
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: m.online ? "#27c93f" : "#bbb",
-                border: "2px solid #fff",
-                boxShadow: "0 0 2px #888",
-                cursor: "pointer"
-              }}
-            />
-            <img src={m.photo} alt={m.name} style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover", marginBottom: 8 }} />
-            <div><b>{m.name}</b></div>
-            <div>{m.profession}</div>
-            <div>License: {m.license}</div>
-            <div>Languages: {m.languages?.join(", ")}</div>
-            <div><a href={`https://wa.me/${m.whatsapp}`} target="_blank" rel="noopener noreferrer">Chat on WhatsApp</a></div>
-            <button style={{ position: "absolute", bottom: 8, right: 8, fontSize: 12 }} onClick={() => {
-              setEditing({ id: m.id, section: "verify" });
-              setForm({
-                section: "verify",
-                photo: m.photo,
-                name: m.name,
-                profession: m.profession,
-                license: m.license,
-                languages: Array.isArray(m.languages) ? m.languages.join(", ") : m.languages,
-                whatsapp: m.whatsapp
-              });
-            }}>Edit</button>
-          </div>
-        ))}
+        {[...verifyMedics, ...businessPharmacists].sort((a, b) => (b.online === true) - (a.online === true)).map(m => {
+          let languagesArr = [];
+          if (Array.isArray(m.languages)) {
+            languagesArr = m.languages;
+          } else if (typeof m.languages === "string") {
+            languagesArr = m.languages.split(",").map(l => l.trim()).filter(Boolean);
+          }
+          return (
+            <div key={m.id} style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, width: 220, background: "#fff", position: "relative" }}>
+              {/* Online/Offline Dot */}
+              <span
+                onClick={() => toggleOnline("verify", m)}
+                title={m.online ? "Online" : "Offline"}
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  right: 32,
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  background: m.online ? "#27c93f" : "#bbb",
+                  border: "2px solid #fff",
+                  boxShadow: "0 0 2px #888",
+                  cursor: "pointer"
+                }}
+              />
+              <img src={m.photo} alt={m.name} style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover", marginBottom: 8 }} />
+              <div><b>{m.name}</b></div>
+              <div>{m.profession}</div>
+              <div>Pharmacy: {m.pharmacyName || <span style={{color:'#888'}}>N/A</span>}</div>
+              <div>License: {m.license}</div>
+              <div>Languages: {languagesArr.join(", ")}</div>
+              <div><a href={`https://wa.me/${m.whatsapp}`} target="_blank" rel="noopener noreferrer">Chat on WhatsApp</a></div>
+              <button style={{ position: "absolute", bottom: 8, right: 8, fontSize: 12 }} onClick={() => {
+                setEditing({ id: m.id, section: "verify" });
+                setForm({
+                  section: "verify",
+                  photo: m.photo,
+                  name: m.name,
+                  profession: m.profession,
+                  license: m.license,
+                  pharmacyName: m.pharmacyName,
+                  languages: Array.isArray(m.languages) ? m.languages.join(", ") : m.languages,
+                  whatsapp: m.whatsapp
+                });
+              }}>Edit</button>
+            </div>
+          );
+        })}
       </div>
       <h4 style={{ marginTop: 24 }}>Consultation Medics</h4>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-        {[...consultMedics].sort((a, b) => (b.online === true) - (a.online === true)).map(m => (
-          <div key={m.id} style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, width: 220, background: "#fff", position: "relative" }}>
-            {/* Online/Offline Dot */}
-            <span
-              onClick={() => toggleOnline("consult", m)}
-              title={m.online ? "Online" : "Offline"}
-              style={{
-                position: "absolute",
-                top: 8,
-                right: 32,
-                width: 14,
-                height: 14,
-                borderRadius: "50%",
-                background: m.online ? "#27c93f" : "#bbb",
-                border: "2px solid #fff",
-                boxShadow: "0 0 2px #888",
-                cursor: "pointer"
-              }}
-            />
-            <img src={m.photo} alt={m.name} style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover", marginBottom: 8 }} />
-            <div><b>{m.name}</b></div>
-            <div>{m.profession}</div>
-            <div>License: {m.license}</div>
-            <div>Languages: {m.languages?.join(", ")}</div>
-            <div><a href={`https://wa.me/${m.whatsapp}`} target="_blank" rel="noopener noreferrer">Chat on WhatsApp</a></div>
-            <button style={{ position: "absolute", bottom: 8, right: 8, fontSize: 12 }} onClick={() => {
-              setEditing({ id: m.id, section: "consult" });
-              setForm({
-                section: "consult",
-                photo: m.photo,
-                name: m.name,
-                profession: m.profession,
-                license: m.license,
-                languages: Array.isArray(m.languages) ? m.languages.join(", ") : m.languages,
-                whatsapp: m.whatsapp
-              });
-            }}>Edit</button>
-          </div>
-        ))}
+        {[...consultMedics].sort((a, b) => (b.online === true) - (a.online === true)).map(m => {
+          let languagesArr = [];
+          if (Array.isArray(m.languages)) {
+            languagesArr = m.languages;
+          } else if (typeof m.languages === "string") {
+            languagesArr = m.languages.split(",").map(l => l.trim()).filter(Boolean);
+          }
+          return (
+            <div key={m.id} style={{ border: "1px solid #ccc", borderRadius: 8, padding: 12, width: 220, background: "#fff", position: "relative" }}>
+              {/* Online/Offline Dot */}
+              <span
+                onClick={() => toggleOnline("consult", m)}
+                title={m.online ? "Online" : "Offline"}
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  right: 32,
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  background: m.online ? "#27c93f" : "#bbb",
+                  border: "2px solid #fff",
+                  boxShadow: "0 0 2px #888",
+                  cursor: "pointer"
+                }}
+              />
+              <img src={m.photo} alt={m.name} style={{ width: 60, height: 60, borderRadius: "50%", objectFit: "cover", marginBottom: 8 }} />
+              <div><b>{m.name}</b></div>
+              <div>{m.profession}</div>
+              <div>License: {m.license}</div>
+              <div>Languages: {languagesArr.join(", ")}</div>
+              <div><a href={`https://wa.me/${m.whatsapp}`} target="_blank" rel="noopener noreferrer">Chat on WhatsApp</a></div>
+              <button style={{ position: "absolute", bottom: 8, right: 8, fontSize: 12 }} onClick={() => {
+                setEditing({ id: m.id, section: "consult" });
+                setForm({
+                  section: "consult",
+                  photo: m.photo,
+                  name: m.name,
+                  profession: m.profession,
+                  license: m.license,
+                  languages: Array.isArray(m.languages) ? m.languages.join(", ") : m.languages,
+                  whatsapp: m.whatsapp
+                });
+              }}>Edit</button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
