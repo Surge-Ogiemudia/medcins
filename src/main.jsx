@@ -14,6 +14,7 @@ import AdminDashboard from "./pages/Admin";
 import DeliveryAgent from "./pages/DeliveryAgent";
 import StoreCart from "./pages/StoreCart";
 import BusinessShop from "./pages/BusinessShop";
+import StoreDirectory from "./pages/StoreDirectory";
 import Restock from "./pages/Restock";
 import Medinterface from "./pages/Medinterface";
 import Navbar from "./components/Navbar";
@@ -39,6 +40,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/add-medicine" element={<AddMedicine />} />
           <Route path="/payment" element={<Payment />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/store" element={<StoreDirectory />} />
           <Route path="/store/:slug" element={<BusinessShop />} />
           <Route path="/store/:slug/cart" element={<StoreCart />} />
           <Route path="/restock" element={<Restock />} />

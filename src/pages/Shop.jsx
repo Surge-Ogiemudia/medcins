@@ -5,6 +5,10 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import { doc, setDoc, getDoc, onSnapshot, collection } from "firebase/firestore";
 
+const NIGERIAN_STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
+];
+
 export default function Shop() {
   const [showCartNotice, setShowCartNotice] = useState(false);
   const { slug } = useParams(); // ✅ capture /:slug if present
@@ -14,6 +18,8 @@ export default function Shop() {
   const [searchTerm, setSearchTerm] = useState("");
   const [addedMessage, setAddedMessage] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [selectedState, setSelectedState] = useState("");
+  // const [allStates, setAllStates] = useState([]);
   const auth = getAuth();
 
   // --- helper: haversine + driving-time estimate ---
@@ -91,13 +97,16 @@ export default function Shop() {
                 data.businessLat = bizData.location.latitude;
                 data.businessLng = bizData.location.longitude;
               }
+              data.businessState = bizData.businessState || bizData.state || "";
             }
           }
           return data;
         })
       );
       // Hide products added by distributors
-      setProducts(items.filter((p) => p.ownerRole !== "distributor"));
+      const filtered = items.filter((p) => p.ownerRole !== "distributor");
+      setProducts(filtered);
+  // No need to collect unique states, use NIGERIAN_STATES
     });
     return () => unsub();
   }, []);
@@ -110,6 +119,10 @@ export default function Shop() {
     let filteredBySlug = slug
       ? products.filter((p) => p.ownerSlug === slug)
       : products;
+    // Filter by selected state if set
+    if (selectedState) {
+      filteredBySlug = filteredBySlug.filter(p => p.businessState === selectedState);
+    }
 
     const grouped = {};
     for (const p of filteredBySlug) {
@@ -255,7 +268,7 @@ export default function Shop() {
         🩺 {slug ? `${slug}'s Pharmacy` : "Pharmacy Shop"}
       </h2>
 
-      <div style={{ margin: "15px 0" }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: "15px 0" }}>
         <input
           type="text"
           placeholder="Search medicines, ingredients, or class..."
@@ -269,6 +282,25 @@ export default function Shop() {
             border: "1px solid #ccc",
           }}
         />
+        <select
+          value={selectedState}
+          onChange={e => setSelectedState(e.target.value)}
+          style={{
+            padding: '10px',
+            borderRadius: 8,
+            border: '1px solid #ccc',
+            fontSize: 16,
+            minWidth: 180,
+            background: '#f9f9f9',
+            color: '#222',
+            outline: 'none',
+          }}
+        >
+          <option value="">Sort by state</option>
+          {NIGERIAN_STATES.map(state => (
+            <option key={state} value={state}>{state}</option>
+          ))}
+        </select>
       </div>
 
       {displayProducts.length === 0 ? (

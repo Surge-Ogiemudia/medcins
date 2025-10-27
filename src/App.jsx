@@ -9,6 +9,7 @@ import Cart from './pages/Cart';
 import Orders from './pages/Orders';
 import Admin from './pages/Admin';
 import BusinessShop from './pages/BusinessShop';
+import StoreDirectory from './pages/StoreDirectory';
 
 function App() {
   return (
@@ -21,7 +22,8 @@ function App() {
         <Route path="/cart" element={<Cart />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/admin" element={<Admin />} />
-        <Route path="/store/:slug" element={<BusinessShop />} />
+  <Route path="/store" element={<StoreDirectory />} />
+  <Route path="/store/:slug" element={<BusinessShop />} />
   <Route path="/deliveryagent" element={<DeliveryAgent />} />
   <Route path="/deliveryagent/:slug" element={<DeliveryAgent />} />
       </Routes>

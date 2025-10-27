@@ -10,7 +10,11 @@ import { app, db } from "../firebase";
 import { doc, setDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 const auth = getAuth(app);
-// Delivery Agent form fields
+
+// List of all Nigerian states
+const NIGERIAN_STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
+];
 
 const initialDeliveryAgentForm = {
   companyName: "",
@@ -507,7 +511,16 @@ export default function Auth() {
                     <input type="text" placeholder="Business Name" value={businessName} onChange={e => setBusinessName(e.target.value)} style={{ margin: "6px 0", padding: "10px", width: "100%", borderRadius: 8, border: '1px solid #cbd5e1' }} />
                     <input type="text" placeholder="Business Address" value={businessAddress} onChange={e => setBusinessAddress(e.target.value)} style={{ margin: "6px 0", padding: "10px", width: "100%", borderRadius: 8, border: '1px solid #cbd5e1' }} />
                     <input type="text" placeholder="License Number" value={licenseNumber} onChange={e => setLicenseNumber(e.target.value)} style={{ margin: "6px 0", padding: "10px", width: "100%", borderRadius: 8, border: '1px solid #cbd5e1' }} />
-                    <input type="text" placeholder="State" value={businessState} onChange={e => setBusinessState(e.target.value)} style={{ margin: "6px 0", padding: "10px", width: "100%", borderRadius: 8, border: '1px solid #cbd5e1' }} />
+                    <select
+                      value={businessState}
+                      onChange={e => setBusinessState(e.target.value)}
+                      style={{ margin: "6px 0", padding: "10px", width: "100%", borderRadius: 8, border: '1px solid #cbd5e1', background: '#f9f9f9', fontSize: 16 }}
+                    >
+                      <option value="">Select State</option>
+                      {NIGERIAN_STATES.map(state => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
                     <input type="text" placeholder="City" value={businessCity} onChange={e => setBusinessCity(e.target.value)} style={{ margin: "6px 0", padding: "10px", width: "100%", borderRadius: 8, border: '1px solid #cbd5e1' }} />
                     <input type="text" placeholder="Nearest Landmark" value={businessLandmark} onChange={e => setBusinessLandmark(e.target.value)} style={{ margin: "6px 0", padding: "10px", width: "100%", borderRadius: 8, border: '1px solid #cbd5e1' }} />
                     <input type="text" placeholder="Phone Number" value={businessPhone} onChange={e => setBusinessPhone(e.target.value)} style={{ margin: "6px 0", padding: "10px", width: "100%", borderRadius: 8, border: '1px solid #cbd5e1' }} />
