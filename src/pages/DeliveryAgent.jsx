@@ -7,9 +7,13 @@ import { useParams } from "react-router-dom";
 export default function DeliveryAgent() {
   const [orders, setOrders] = useState([]);
   useEffect(() => {
-    // Listen for all Processing orders
+    // Listen for all Processing orders with express delivery only
     const unsub = onSnapshot(collection(db, "orders"), snap => {
-      setOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(o => o.status === "Processing"));
+      setOrders(
+        snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(o => o.status === "Processing" && o.deliveryType === "express")
+      );
     });
     return () => unsub();
   }, []);
