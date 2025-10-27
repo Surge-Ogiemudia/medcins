@@ -1,4 +1,6 @@
+
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 export default function Home() {
   const [location, setLocation] = useState(null);
@@ -41,8 +43,8 @@ export default function Home() {
 
       {/* Banner Button to Find Pharmacies */}
       <div style={{ margin: "40px 0" }}>
-        <a
-          href="/store"
+        <Link
+          to="/store"
           style={{
             display: "inline-block",
             padding: "18px 36px",
@@ -57,7 +59,7 @@ export default function Home() {
           }}
         >
           🔎 Find a pharmacy store near you
-        </a>
+        </Link>
       </div>
     </div>
   );

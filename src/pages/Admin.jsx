@@ -576,6 +576,7 @@ export default function AdminDashboard() {
                   const hasMoreItems = order.items && order.items.length > 3;
                   return (
                     <div key={order.id} style={orderCardStyle}>
+                      <p><strong>Delivery Type:</strong> {order.deliveryType ? order.deliveryType.charAt(0).toUpperCase() + order.deliveryType.slice(1) : 'N/A'}</p>
                       <div style={{display:"flex", justifyContent:"space-between",alignItems:"center"}}>
                         <p><strong>Order Date:</strong> {new Date(order.date).toLocaleString()}</p>
                         <button onClick={()=>toggleOrder(order.id)}>{expandedOrders[order.id] ? "Hide Items" : "Show Items"}</button>
@@ -770,6 +771,7 @@ export default function AdminDashboard() {
                   const hasMoreItems = order.items && order.items.length > 3;
                   return (
                     <div key={order.id} style={orderCardStyle}>
+                      <p><strong>Delivery Type:</strong> {order.deliveryType ? order.deliveryType.charAt(0).toUpperCase() + order.deliveryType.slice(1) : 'N/A'}</p>
                       <div style={{display:"flex", justifyContent:"space-between",alignItems:"center"}}>
                         <p><strong>Order Date:</strong> {new Date(order.completedAt || order.date).toLocaleString()}</p>
                         <button onClick={()=>toggleOrder(order.id)}>{expandedOrders[order.id] ? "Hide Details" : "Show Details"}</button>
@@ -874,6 +876,7 @@ export default function AdminDashboard() {
                     const hasMoreItems = order.items && order.items.length > 3;
                     return (
                       <div key={order.id} style={orderCardStyle}>
+                        <p><strong>Delivery Type:</strong> {order.deliveryType ? order.deliveryType.charAt(0).toUpperCase() + order.deliveryType.slice(1) : 'N/A'}</p>
                         <div style={{display:"flex", justifyContent:"space-between",alignItems:"center"}}>
                           <p><strong>Order Date:</strong> {new Date(order.cancelledAt || order.date).toLocaleString()}</p>
                           <button onClick={()=>toggleOrder(order.id)}>{expandedOrders[order.id] ? "Hide Details" : "Show Details"}</button>

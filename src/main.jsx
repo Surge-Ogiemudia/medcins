@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { HashRouter, Routes, Route, Link } from "react-router-dom";
 import App from "./App";
 import BusinessList from "./pages/BusinessList";
 import Home from "./pages/Home";
@@ -24,7 +24,7 @@ import AgentsList from "./pages/AgentsList";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+  <HashRouter>
       <>
         <Navbar />
         <LeaveStoreButton />
@@ -49,18 +49,20 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <Route path="/agents" element={<AgentsList />} />
         </Routes>
       </>
-    </BrowserRouter>
+  </HashRouter>
   </React.StrictMode>
 );
 
+            import { useNavigate } from "react-router-dom";
             function LeaveStoreButton() {
               const path = window.location.pathname;
               const storeMatch = path.match(/^\/store\/([^\/]+)/);
               const storeSlug = storeMatch ? storeMatch[1] : null;
+              const navigate = useNavigate();
               if (!storeSlug) return null;
               return (
                 <button
-                  onClick={() => window.location.href = "/shop"}
+                  onClick={() => navigate("/shop")}
                   style={{
                     position: "fixed",
                     top: "80px",
@@ -84,4 +86,4 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                   Leave Store
                 </button>
               );
-}
+            }

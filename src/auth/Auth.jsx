@@ -1,5 +1,6 @@
 // src/auth/Auth.jsx
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -32,6 +33,7 @@ const initialDeliveryAgentForm = {
 };
 
 export default function Auth() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   // Show extra fields for customer signup only when needed
   const [password, setPassword] = useState("");
@@ -299,7 +301,7 @@ export default function Auth() {
         setUser({ ...loggedInUser, ...docSnap.data() });
         // If user is a delivery agent, redirect to their slug profile
         if (docSnap.data().role === "delivery-agent" && docSnap.data().slug) {
-          window.location.href = `/agent/${docSnap.data().slug}`;
+          navigate(`/agent/${docSnap.data().slug}`);
         }
       } else {
         alert("⚠️ No Firestore user record found. Please contact admin.");

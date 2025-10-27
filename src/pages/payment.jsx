@@ -109,15 +109,16 @@ export default function Payment() {
     await setDoc(orderRef, {
       userId: user.uid,
       items: cart,
-  subtotal,
-  deliveryFee,
-  pomFee,
-  total: grandTotal,
-  status: "Processing",
-  date: new Date().toISOString(),
-  paymentReference: reference?.reference || "COUPON_FREE",
-  deliveryInfo,
-  coupon: couponData || null,
+      subtotal,
+      deliveryFee,
+      pomFee,
+      total: grandTotal,
+      status: "Processing",
+      date: new Date().toISOString(),
+      paymentReference: reference?.reference || "COUPON_FREE",
+      deliveryInfo,
+      coupon: couponData || null,
+      deliveryType, // <-- Save delivery type
     });
 
     await setDoc(doc(db, "carts", user.uid), { items: [] });

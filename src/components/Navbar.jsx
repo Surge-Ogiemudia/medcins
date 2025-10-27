@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import { getDoc, doc } from "firebase/firestore";
 import { onSnapshot } from "firebase/firestore";
 
 export default function Navbar() {
+  const navigate = useNavigate();
   const [cartCount, setCartCount] = useState(0);
   useEffect(() => {
     const auth = getAuth();
@@ -64,7 +65,16 @@ export default function Navbar() {
       {userRole === "delivery-agent" ? (
         <>
           <Link to="/auth">Auth</Link>
-          <button onClick={() => { getAuth().signOut(); window.location.href = "/auth"; }} style={{ marginLeft: 12 }}>Logout</button>
+          <button
+            onClick={async () => {
+              await getAuth().signOut();
+              // Always force correct hash-based URL for GitHub Pages
+              window.location.href = "/medcins/#/auth";
+            }}
+            style={{ marginLeft: 12 }}
+          >
+            Logout
+          </button>
         </>
       ) : (
         <>
