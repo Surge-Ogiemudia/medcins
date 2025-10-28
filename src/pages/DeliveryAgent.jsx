@@ -12,7 +12,7 @@ export default function DeliveryAgent() {
       setOrders(
         snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
-          .filter(o => o.status === "Processing" && o.deliveryType === "express")
+          .filter(o => o.status === "Processing" && o.deliveryType && o.deliveryType.toLowerCase() === "express")
       );
     });
     return () => unsub();
@@ -64,6 +64,7 @@ export default function DeliveryAgent() {
                 <div key={order.id} style={{background:'#f9f9f9',border:'1px solid #ccc',borderRadius:10,padding:18,minWidth:260,maxWidth:340,marginBottom:18}}>
                   <div><strong>Order ID:</strong> {order.id}</div>
                   <div><strong>Date:</strong> {order.date ? new Date(order.date).toLocaleString() : 'N/A'}</div>
+                  <div><strong>Delivery Type:</strong> {order.deliveryType ? order.deliveryType : 'N/A'}</div>
                   <div><strong>Customer Address:</strong> {missingAddress ? <span style={{color:'red',fontWeight:600}}>⚠️ Address missing for this order</span> : customerAddress}</div>
                   <pre style={{fontSize:12,background:'#f3f3f3',padding:6,borderRadius:4,margin:'4px 0 8px 0',color:'#333'}}>
                     deliveryInfo: {JSON.stringify(deliveryInfo)}
