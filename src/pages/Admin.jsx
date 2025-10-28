@@ -1,5 +1,6 @@
 // src/pages/Admin.jsx
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import { collection, doc, onSnapshot, deleteDoc, updateDoc, getDoc, query, where, getDocs, addDoc } from "firebase/firestore";
@@ -37,8 +38,9 @@ export default function AdminDashboard() {
         assignedAt: new Date().toISOString(),
       });
       setReassignDropdown(prev => ({ ...prev, [orderId]: false }));
+      toast.success('Order reassigned successfully.');
     } catch (err) {
-      alert('Failed to reassign order.');
+      toast.error('Failed to reassign order.');
     }
   };
   // Cancel order handler for admin
@@ -50,8 +52,9 @@ export default function AdminDashboard() {
         cancelledBy: 'admin',
         cancelledAt: new Date().toISOString(),
       });
+      toast.success('Order cancelled.');
     } catch (err) {
-      alert('Failed to cancel order.');
+      toast.error('Failed to cancel order.');
     }
   };
   // Collapsible state for orders sections (pending, completed, cancelled)
@@ -113,7 +116,7 @@ export default function AdminDashboard() {
         await updateDoc(doc(db, "orders", docSnap.id), { status: "Canceled", canceledReason: "Distributor declined registration" });
       }
     }
-    alert(`Registration ${status}`);
+    toast.info(`Registration ${status}`);
   };
   // Download/filter state
 
@@ -234,9 +237,9 @@ export default function AdminDashboard() {
 
   // -------- Utility Functions --------
   const handleDeleteMedicine = async (med) => {
-    if (!window.confirm(`Delete medicine: ${med.name}?`)) return;
-    try { await deleteDoc(doc(db, "products", med.id)); } 
-    catch(e){ console.error(e); alert("Error deleting medicine"); }
+  if (!window.confirm(`Delete medicine: ${med.name}?`)) return;
+  try { await deleteDoc(doc(db, "products", med.id)); toast.success("Medicine deleted."); } 
+  catch(e){ console.error(e); toast.error("Error deleting medicine"); }
   };
 
   const handleDeleteBatch = async (batch) => {

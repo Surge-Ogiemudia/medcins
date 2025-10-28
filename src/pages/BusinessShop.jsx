@@ -1,12 +1,16 @@
 // src/pages/BusinessShop.jsx
+import React from "react";
 import { useEffect, useState } from "react";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { toast } from "react-toastify";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
 export default function BusinessShop() {
+  // Track last seen order IDs to avoid duplicate notifications
+  const [lastOrderIds, setLastOrderIds] = useState([]);
   const [showCartNotice, setShowCartNotice] = useState(false);
   // Floating Talk to Pharmacist button
   const PharmacistButton = () => {
@@ -88,6 +92,27 @@ export default function BusinessShop() {
     });
     return () => unsubscribeAuth();
   }, [auth]);
+
+  // Real-time notification for new orders containing this business's products
+  useEffect(() => {
+    if (!business) return;
+    const unsub = onSnapshot(collection(db, "orders"), (snap) => {
+      const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Find orders with at least one item owned by this business
+      const relevantOrders = orders.filter(order =>
+        Array.isArray(order.items) && order.items.some(item => item.ownerId === business.uid)
+      );
+      // Only notify for new orders
+      const newOrders = relevantOrders.filter(order => !lastOrderIds.includes(order.id));
+      if (newOrders.length > 0) {
+        newOrders.forEach(order => {
+          toast.info(`🛒 New order received! Order ID: ${order.id}`);
+        });
+        setLastOrderIds(prev => [...prev, ...newOrders.map(o => o.id)]);
+      }
+    });
+    return () => unsub();
+  }, [business, lastOrderIds]);
   useEffect(() => {
     if (!navigator.geolocation) return;
 

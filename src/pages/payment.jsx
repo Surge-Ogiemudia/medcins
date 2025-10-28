@@ -5,6 +5,7 @@ import { db } from "../firebase";
 import { doc, setDoc, collection, getDoc } from "firebase/firestore";
 import { PaystackButton } from "react-paystack";
 import { validateCoupon } from "../utils/coupon";
+import { toast } from "react-toastify";
 
 export default function Payment() {
   const [coupon, setCoupon] = useState("");
@@ -126,7 +127,7 @@ export default function Payment() {
     setSubtotal(0);
     setGrandTotal(0);
 
-    alert("✅ Payment successful! Order created.");
+      toast.success("✅ Payment successful! Order created.");
     if (cart.some(item => item.isPOM)) {
       navigate("/medinterface");
     } else {
@@ -135,7 +136,7 @@ export default function Payment() {
   };
 
   const handlePaymentClose = () => {
-    alert("Payment cancelled.");
+  toast.info("Payment cancelled.");
   };
 
   const handleInputChange = (e) => {

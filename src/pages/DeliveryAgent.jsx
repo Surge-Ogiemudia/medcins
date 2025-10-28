@@ -7,12 +7,12 @@ import { useParams } from "react-router-dom";
 export default function DeliveryAgent() {
   const [orders, setOrders] = useState([]);
   useEffect(() => {
-    // Listen for all Processing orders with express delivery only
+    // Listen for all Processing orders (show all delivery types for debugging)
     const unsub = onSnapshot(collection(db, "orders"), snap => {
       setOrders(
         snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
-          .filter(o => o.status === "Processing" && o.deliveryType && o.deliveryType.toLowerCase() === "express")
+          .filter(o => o.status === "Processing")
       );
     });
     return () => unsub();
@@ -64,7 +64,7 @@ export default function DeliveryAgent() {
                 <div key={order.id} style={{background:'#f9f9f9',border:'1px solid #ccc',borderRadius:10,padding:18,minWidth:260,maxWidth:340,marginBottom:18}}>
                   <div><strong>Order ID:</strong> {order.id}</div>
                   <div><strong>Date:</strong> {order.date ? new Date(order.date).toLocaleString() : 'N/A'}</div>
-                  <div><strong>Delivery Type:</strong> {order.deliveryType ? order.deliveryType : 'N/A'}</div>
+                  <div><strong>Delivery Type (debug):</strong> {typeof order.deliveryType} | {JSON.stringify(order.deliveryType)}</div>
                   <div><strong>Customer Address:</strong> {missingAddress ? <span style={{color:'red',fontWeight:600}}>⚠️ Address missing for this order</span> : customerAddress}</div>
                   <pre style={{fontSize:12,background:'#f3f3f3',padding:6,borderRadius:4,margin:'4px 0 8px 0',color:'#333'}}>
                     deliveryInfo: {JSON.stringify(deliveryInfo)}

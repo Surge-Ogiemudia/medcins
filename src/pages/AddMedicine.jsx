@@ -1,5 +1,6 @@
 // src/pages/AddMedicine.jsx
 import { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import {
@@ -132,16 +133,16 @@ export default function AddMedicine() {
   // 🔹 Add/update single medicine
   const handleAddMedicine = async (e) => {
     e.preventDefault();
-    if (!user) return alert("Please log in first");
-    if (!userData) return alert("Loading user data...");
+    if (!user) return toast.error("Please log in first");
+    if (!userData) return toast.info("Loading user data...");
 
     const { name, ingredient, class: medClass, price, image } = medicine;
     if (!name || !ingredient || !medClass || !price)
-      return alert("Please fill all required fields");
+      return toast.warn("Please fill all required fields");
 
     const parsedPrice = parseInt(price, 10);
     if (isNaN(parsedPrice) || parsedPrice < 0)
-      return alert("Price must be a positive number");
+      return toast.warn("Price must be a positive number");
 
   const { ownerSlug, businessName } = getOwnerMeta();
   // Get pharmacist info if available
@@ -179,8 +180,8 @@ export default function AddMedicine() {
       }
       setMedicine({ name: "", ingredient: "", class: "", price: "", image: "", isPOM: false, registeredOnly: false });
     } catch (err) {
-      console.error(err);
-      alert("Error saving medicine");
+  console.error(err);
+  toast.error("Error saving medicine");
     }
   };
 
@@ -204,9 +205,9 @@ export default function AddMedicine() {
   };
 
   const handleCsvUpload = async () => {
-    if (!csvPreview.length) return alert("No CSV data to upload");
-    if (!user) return alert("Please log in first");
-    if (!userData) return alert("Loading user data...");
+  if (!csvPreview.length) return toast.info("No CSV data to upload");
+  if (!user) return toast.error("Please log in first");
+  if (!userData) return toast.info("Loading user data...");
 
     const batchRef = doc(collection(db, "batches"));
     const batchMedicineIds = [];
@@ -246,6 +247,7 @@ export default function AddMedicine() {
     }
 
     alert(`✅ ${batchMedicineIds.length} medicines uploaded`);
+  toast.success(`✅ ${batchMedicineIds.length} medicines uploaded`);
     setCsvPreview([]);
   };
 
@@ -266,9 +268,10 @@ export default function AddMedicine() {
     if (!window.confirm("Delete this medicine?")) return;
     try {
       await deleteDoc(doc(db, "products", med.id));
+      toast.success("Medicine deleted.");
     } catch (err) {
       console.error(err);
-      alert("Error deleting medicine");
+      toast.error("Error deleting medicine");
     }
   };
 
@@ -277,9 +280,10 @@ export default function AddMedicine() {
     try {
       for (let medId of batch.medicineIds) await deleteDoc(doc(db, "products", medId));
       await deleteDoc(doc(db, "batches", batch.id));
+      toast.success("Batch deleted.");
     } catch (err) {
       console.error(err);
-      alert("Error deleting batch");
+      toast.error("Error deleting batch");
     }
   };
 

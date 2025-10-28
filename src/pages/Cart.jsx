@@ -3,6 +3,7 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 export default function Cart() {
   const [user, setUser] = useState(null);
@@ -44,7 +45,7 @@ export default function Cart() {
         date: new Date().toISOString(),
       });
     }
-    alert("Registration request(s) sent to distributor(s). Await approval before completing your order.");
+    toast.info("Registration request(s) sent to distributor(s). Await approval before completing your order.");
     // Optionally, redirect or update UI
     setShowRegistration(false);
   };
@@ -87,7 +88,7 @@ export default function Cart() {
 
   // Add item to cart
   const addToCart = (item) => {
-    if (!user) return alert("Please login first");
+  if (!user) return toast.error("Please login first");
 
     const newCart = [...cart];
     const index = newCart.findIndex((i) => i.name === item.name);
@@ -100,7 +101,7 @@ export default function Cart() {
 
   // Remove item from cart
   const removeFromCart = (itemName) => {
-    if (!user) return alert("Please login first");
+  if (!user) return toast.error("Please login first");
 
     const newCart = [...cart];
     const index = newCart.findIndex((i) => i.name === itemName);
@@ -115,8 +116,8 @@ export default function Cart() {
 
   // Navigate to Payment page
   const goToPayment = () => {
-    if (!user) return alert("Please login to proceed to payment");
-    if (cart.length === 0) return alert("Cart is empty");
+  if (!user) return toast.error("Please login to proceed to payment");
+  if (cart.length === 0) return toast.info("Cart is empty");
     navigate("/payment", { state: { cart, total } });
   };
 

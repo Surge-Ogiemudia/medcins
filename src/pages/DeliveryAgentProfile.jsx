@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import { useParams } from "react-router-dom";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 export default function DeliveryAgentProfile() {
+  // Track last seen order IDs to avoid duplicate notifications
+  const [lastOrderIds, setLastOrderIds] = useState([]);
   // Search state (must be inside component)
   const [orderSearch, setOrderSearch] = useState("");
 
@@ -40,6 +43,28 @@ export default function DeliveryAgentProfile() {
   const [businessMap, setBusinessMap] = useState({});
   // Fetch all businesses for mapping ownerId to business info
   useEffect(() => {
+  // Real-time notification for new express orders (unassigned)
+  useEffect(() => {
+    if (!currentUser) return;
+    const unsub = onSnapshot(collection(db, "orders"), (snap) => {
+      const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Only express, processing, unassigned orders
+      const relevantOrders = orders.filter(order =>
+        order.status === "Processing" &&
+        !order.assignedAgentId &&
+        order.deliveryType && order.deliveryType.toLowerCase() === "express"
+      );
+      // Only notify for new orders
+      const newOrders = relevantOrders.filter(order => !lastOrderIds.includes(order.id));
+      if (newOrders.length > 0) {
+        newOrders.forEach(order => {
+          toast.info(`🚚 New express delivery order! Order ID: ${order.id}`);
+        });
+        setLastOrderIds(prev => [...prev, ...newOrders.map(o => o.id)]);
+      }
+    });
+    return () => unsub();
+  }, [currentUser, lastOrderIds]);
     const unsub = onSnapshot(collection(db, "users"), (snap) => {
       const map = {};
       snap.docs.forEach(doc => {
@@ -99,7 +124,7 @@ export default function DeliveryAgentProfile() {
       setCompletedOrders(all.filter(order => order.status === "Completed" && order.assignedAgentId === currentUser.uid));
       setProgressOrders(all.filter(order => order.status === "In-Progress" && order.assignedAgentId === currentUser.uid));
       // Only show processing orders not canceled by this agent in this session
-      setOrders(all.filter(order => order.status === "Processing" && !order.assignedAgentId && !canceledOrdersLocal.some(o => o.id === order.id)));
+  setOrders(all.filter(order => order.status === "Processing" && !order.assignedAgentId && !canceledOrdersLocal.some(o => o.id === order.id) && order.deliveryType && order.deliveryType.toLowerCase() === "express"));
     });
     return () => unsub();
   }, [currentUser, canceledOrdersLocal]);
@@ -119,8 +144,9 @@ export default function DeliveryAgentProfile() {
         assignedAt: new Date().toISOString(),
         status: "In-Progress",
       });
+      toast.success("Order accepted!");
     } catch (err) {
-      alert("Failed to accept order");
+      toast.error("Failed to accept order");
     }
     setAcceptingOrderId(null);
   };
@@ -133,8 +159,9 @@ export default function DeliveryAgentProfile() {
         deliveredByRider: true,
         riderCompletedAt: new Date().toISOString(),
       });
+      toast.success("Order marked as delivered!");
     } catch (err) {
-      alert("Failed to mark as delivered");
+      toast.error("Failed to mark as delivered");
     }
   };
 
@@ -148,8 +175,9 @@ export default function DeliveryAgentProfile() {
         assignedAgentName: null,
         assignedAt: null,
       });
+      toast.info("Order moved back to processing.");
     } catch (err) {
-      alert("Failed to move order back to processing");
+      toast.error("Failed to move order back to processing");
     }
   };
 
@@ -184,8 +212,9 @@ export default function DeliveryAgentProfile() {
       const agentRef = doc(db, "deliveryAgents", agent.id);
       await updateDoc(agentRef, { available: !agent.available });
       setAgent({ ...agent, available: !agent.available });
+      toast.success("Availability updated.");
     } catch (err) {
-      alert("Failed to update availability");
+      toast.error("Failed to update availability");
     }
     setAvailabilityLoading(false);
   };
@@ -369,6 +398,7 @@ export default function DeliveryAgentProfile() {
                       <div key={order.id} style={{border:'1px solid #ccc', borderRadius:8, padding:16, marginBottom:16, background:'#fcfcfc'}}>
                         {/* ...existing code for order card... */}
                         <div style={{fontWeight:'bold',marginBottom:8}}>Order #{order.id}</div>
+                        <div><strong>Delivery Type (debug):</strong> {typeof order.deliveryType} | {JSON.stringify(order.deliveryType)}</div>
                         <div style={{display:'flex',alignItems:'flex-start'}}>
                           {/* Vertical anchor line */}
                           <div style={{position:'relative',width:24,display:'flex',flexDirection:'column',alignItems:'center',marginRight:12}}>

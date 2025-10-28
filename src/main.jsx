@@ -1,7 +1,9 @@
 import React from "react";
+import { toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import ReactDOM from "react-dom/client";
 import { HashRouter, Routes, Route, Link } from "react-router-dom";
-import App from "./App";
 import BusinessList from "./pages/BusinessList";
 import Home from "./pages/Home";
 import Shop from "./pages/Shop";
@@ -21,35 +23,43 @@ import Navbar from "./components/Navbar";
 import RedirectToLowercase from "./pages/RedirectToLowercase";
 import DeliveryAgentProfile from "./pages/DeliveryAgentProfile";
 import AgentsList from "./pages/AgentsList";
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import theme from './theme';
+
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-  <HashRouter>
-      <>
-        <Navbar />
-        <LeaveStoreButton />
-        <Routes>
-          {/* New delivery agent profile route by slug */}
-          <Route path="/agent/:slug" element={<DeliveryAgentProfile />} />
-          <Route path="/agents" element={<AgentsList />} />
-          <Route path="/" element={<Home />} />
-          <Route path="/shop" element={<Shop />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/add-medicine" element={<AddMedicine />} />
-          <Route path="/payment" element={<Payment />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/store" element={<StoreDirectory />} />
-          <Route path="/store/:slug" element={<BusinessShop />} />
-          <Route path="/store/:slug/cart" element={<StoreCart />} />
-          <Route path="/restock" element={<Restock />} />
-          <Route path="/medinterface" element={<Medinterface />} />
-          <Route path="/businesses" element={<BusinessList />} />
-          <Route path="/agents" element={<AgentsList />} />
-        </Routes>
-      </>
-  </HashRouter>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <HashRouter>
+        <>
+          <Navbar />
+          <LeaveStoreButton />
+          <Routes>
+            {/* New delivery agent profile route by slug */}
+            <Route path="/agent/:slug" element={<DeliveryAgentProfile />} />
+            <Route path="/agents" element={<AgentsList />} />
+            <Route path="/" element={<Home />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/add-medicine" element={<AddMedicine />} />
+            <Route path="/payment" element={<Payment />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/store" element={<StoreDirectory />} />
+            <Route path="/store/:slug" element={<BusinessShop />} />
+            <Route path="/store/:slug/cart" element={<StoreCart />} />
+            <Route path="/restock" element={<Restock />} />
+            <Route path="/medinterface" element={<Medinterface />} />
+            <Route path="/businesses" element={<BusinessList />} />
+            <Route path="/agents" element={<AgentsList />} />
+          </Routes>
+          <ToastContainer position="top-right" autoClose={4000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
+        </>
+      </HashRouter>
+    </ThemeProvider>
   </React.StrictMode>
 );
 
