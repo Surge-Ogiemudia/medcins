@@ -255,6 +255,7 @@ export default function Orders() {
                       {item.image && (
                         <img
                           src={item.image}
+                          onError={e => { e.target.onerror = null; e.target.src = '/pharmastack-logo.png'; }}
                           alt={item.name}
                           style={{
                             width: "50px",

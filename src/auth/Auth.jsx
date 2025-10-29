@@ -29,6 +29,25 @@ import NIGERIAN_STATES from "../constants/nigerianStates";
     const [deliveryAgentForm, setDeliveryAgentForm] = useState({});
     const [deliveryAgentLoading, setDeliveryAgentLoading] = useState(false);
     const initialDeliveryAgentForm = {}; // Define your initial form state
+    // Missing customer/business/distributor form state values used in the JSX
+    const [name, setName] = useState("");
+    const [phone, setPhone] = useState("");
+    const [address, setAddress] = useState("");
+    const [state, setState] = useState("");
+    const [city, setCity] = useState("");
+    const [landmark, setLandmark] = useState("");
+    const [licenseNumber, setLicenseNumber] = useState("");
+    const [distributorName, setDistributorName] = useState("");
+    const [distributorLicense, setDistributorLicense] = useState("");
+    const [distributorState, setDistributorState] = useState("");
+    const [distributorCity, setDistributorCity] = useState("");
+    const [distributorLandmark, setDistributorLandmark] = useState("");
+    const [distributorLocation, setDistributorLocation] = useState(null);
+    const [loadingDistributorLocation, setLoadingDistributorLocation] = useState(false);
+    const [location, setLocation] = useState(null);
+    const [loadingLocation, setLoadingLocation] = useState(false);
+    const [businessPhone, setBusinessPhone] = useState("");
+    const [businessWhatsapp, setBusinessWhatsapp] = useState("");
   
 
     // Redirect logic moved to useEffect to avoid hook/render errors
