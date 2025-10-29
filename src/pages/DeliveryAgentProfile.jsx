@@ -6,6 +6,8 @@ import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from "f
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 export default function DeliveryAgentProfile() {
+  // Current user state (must be before any useEffect that uses it)
+  const [currentUser, setCurrentUser] = useState(null);
   // Track last seen order IDs to avoid duplicate notifications
   const [lastOrderIds, setLastOrderIds] = useState([]);
   // Search state (must be inside component)
@@ -43,9 +45,36 @@ export default function DeliveryAgentProfile() {
   const [businessMap, setBusinessMap] = useState({});
   // Fetch all businesses for mapping ownerId to business info
   useEffect(() => {
+    const unsub = onSnapshot(collection(db, "users"), (snap) => {
+      const map = {};
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.role === "medicine-manager") {
+          map[doc.id] = {
+            name: data.businessName || doc.id,
+            address: data.businessAddress || data.address || "-",
+            lat: data.lat || data.latitude || null,
+            lng: data.lng || data.longitude || null
+          };
+        }
+      });
+      setBusinessMap(map);
+    });
+    return () => unsub();
+  }, []);
+
+  const [userLoading, setUserLoading] = useState(true);
   // Real-time notification for new express orders (unassigned)
   useEffect(() => {
-    if (!currentUser) return;
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setCurrentUser(u);
+      setUserLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+  useEffect(() => {
+    if (userLoading || !currentUser) return;
     const unsub = onSnapshot(collection(db, "orders"), (snap) => {
       const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // Only express, processing, unassigned orders
@@ -64,24 +93,7 @@ export default function DeliveryAgentProfile() {
       }
     });
     return () => unsub();
-  }, [currentUser, lastOrderIds]);
-    const unsub = onSnapshot(collection(db, "users"), (snap) => {
-      const map = {};
-      snap.docs.forEach(doc => {
-        const data = doc.data();
-        if (data.role === "medicine-manager") {
-          map[doc.id] = {
-            name: data.businessName || doc.id,
-            address: data.businessAddress || data.address || "-",
-            lat: data.lat || data.latitude || null,
-            lng: data.lng || data.longitude || null
-          };
-        }
-      });
-      setBusinessMap(map);
-    });
-    return () => unsub();
-  }, []);
+  }, [userLoading, currentUser, lastOrderIds]);
   const [userMap, setUserMap] = useState({});
   // Fetch all users for mapping userId to email
   useEffect(() => {
@@ -112,22 +124,21 @@ export default function DeliveryAgentProfile() {
   const [agent, setAgent] = useState(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState(null);
   const [activeTab, setActiveTab] = useState('availability');
 
 
   // Real-time listeners for all order states
   useEffect(() => {
-    if (!currentUser) return;
+    if (userLoading || !currentUser) return;
     const unsub = onSnapshot(collection(db, "orders"), (snap) => {
       const all = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setCompletedOrders(all.filter(order => order.status === "Completed" && order.assignedAgentId === currentUser.uid));
       setProgressOrders(all.filter(order => order.status === "In-Progress" && order.assignedAgentId === currentUser.uid));
       // Only show processing orders not canceled by this agent in this session
-  setOrders(all.filter(order => order.status === "Processing" && !order.assignedAgentId && !canceledOrdersLocal.some(o => o.id === order.id) && order.deliveryType && order.deliveryType.toLowerCase() === "express"));
+      setOrders(all.filter(order => order.status === "Processing" && !order.assignedAgentId && !canceledOrdersLocal.some(o => o.id === order.id) && order.deliveryType && order.deliveryType.toLowerCase() === "express"));
     });
     return () => unsub();
-  }, [currentUser, canceledOrdersLocal]);
+  }, [userLoading, currentUser, canceledOrdersLocal]);
 
   // Accept order handler (moves to In-Progress)
   const handleAcceptOrder = async (orderId) => {
@@ -220,14 +231,6 @@ export default function DeliveryAgentProfile() {
   };
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setCurrentUser(u);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  useEffect(() => {
     async function fetchAgent() {
       setLoading(true);
       // Debug: fetch all agents and log their slugs
@@ -247,9 +250,8 @@ export default function DeliveryAgentProfile() {
     fetchAgent();
   }, [slug]);
 
-  if (loading) return <div style={{padding:40}}>Loading...</div>;
+  if (loading || userLoading) return <div style={{padding:40}}>Loading...</div>;
   if (!agent) return <div style={{padding:40, color:'#e53935'}}>No delivery agent found for this slug.</div>;
-  // Only allow access if current user matches agent userId
   if (!currentUser || currentUser.uid !== agent.userId) {
     return <div style={{padding:40, color:'#e53935'}}>Access denied. You can only view your own profile.</div>;
   }
@@ -478,7 +480,6 @@ export default function DeliveryAgentProfile() {
                   {filterOrdersBySearch(progressOrders).length === 0 ? (
                     <div style={{marginBottom:20, color:'#888'}}>No in-progress orders found.</div>
                   ) : (
-// ...existing code...
 filterOrdersBySearch(progressOrders).map(order => {
                       const successState = !!orderSuccessState[order.id];
                       const showNotif = !!orderNotifState[order.id];

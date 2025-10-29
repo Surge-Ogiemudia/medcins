@@ -162,9 +162,59 @@ export default function Home() {
         <Typography variant="h3" component="h1" fontWeight={700} color="primary" gutterBottom>
           🏠 Welcome to Pharmastack
         </Typography>
+
         <Typography variant="h6" color="text.secondary" gutterBottom>
-          Your trusted online pharmacy.
+          Making Medicine Accessible, Findable, and Available to All.
         </Typography>
+
+        {/* Mission Statement - modern info box */}
+        <Box
+          sx={{
+            position: 'relative',
+            background: 'linear-gradient(90deg, #e0e7ff 0%, #f4f6fb 100%)',
+            borderLeft: '6px solid #6366f1',
+            borderRadius: 3,
+            p: 2.5,
+            my: 2.5,
+            boxShadow: '0 2px 12px #c7d2fe22',
+            color: '#2d3748',
+            fontSize: 18,
+            fontWeight: 500,
+            textAlign: 'center',
+            letterSpacing: 0.1,
+            lineHeight: 1.6,
+            maxWidth: 600,
+            mx: 'auto',
+            overflow: 'hidden',
+          }}
+        >
+          <span style={{ color: '#6366f1', fontWeight: 700, fontSize: 20, display: 'block', marginBottom: 4 }}>Our Mission</span>
+          <span style={{ position: 'relative', zIndex: 1 }}>
+            We are solving the problem of inequitable access to medicines by building a digital map of real-time medicine availability—a connected ecosystem ensuring that no patient is left untreated because a drug is unavailable, unfindable, or inaccessible.
+          </span>
+          {/* Gloss shine effect */}
+            <span
+              style={{
+                pointerEvents: 'none',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 2,
+                background: 'linear-gradient(120deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.7) 40%, rgba(255,255,255,0.2) 60%, rgba(255,255,255,0) 100%)',
+                transform: 'translateX(-100%)',
+                animation: 'gloss-move 7s cubic-bezier(.4,.6,.6,1) infinite',
+              }}
+            />
+            <style>{`
+              @keyframes gloss-move {
+                0% { transform: translateX(-100%); }
+                60% { transform: translateX(120%); }
+                100% { transform: translateX(120%); }
+              }
+            `}</style>
+        </Box>
 
 
 

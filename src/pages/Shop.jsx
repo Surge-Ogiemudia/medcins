@@ -19,7 +19,7 @@ export default function Shop() {
   const [addedMessage, setAddedMessage] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [selectedState, setSelectedState] = useState("");
-  // const [allStates, setAllStates] = useState([]);
+  const [loading, setLoading] = useState(true);
   const auth = getAuth();
 
   // --- helper: haversine + driving-time estimate ---
@@ -81,6 +81,7 @@ export default function Shop() {
 
   // --- Get all products ---
   useEffect(() => {
+    setLoading(true);
     const unsub = onSnapshot(collection(db, "products"), async (snapshot) => {
       const items = await Promise.all(
         snapshot.docs.map(async (docSnap) => {
@@ -106,7 +107,7 @@ export default function Shop() {
       // Hide products added by distributors
       const filtered = items.filter((p) => p.ownerRole !== "distributor");
       setProducts(filtered);
-  // No need to collect unique states, use NIGERIAN_STATES
+      setLoading(false);
     });
     return () => unsub();
   }, []);
@@ -244,7 +245,13 @@ export default function Shop() {
 
   // --- UI ---
   return (
-    <div style={{ padding: "30px", position: "relative" }}>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #f4f6fb 0%, #e0e7ff 100%)',
+      padding: '30px',
+      position: 'relative',
+      fontFamily: 'Inter, Arial, sans-serif',
+    }}>
       {showCartNotice && (
         <div style={{
           position: 'fixed',
@@ -264,36 +271,50 @@ export default function Shop() {
           Added to cart! <a href="/cart" style={{ color: '#fff', textDecoration: 'underline', marginLeft: 10 }}>View Cart</a>
         </div>
       )}
-      <h2>
-        🩺 {slug ? `${slug}'s Pharmacy` : "Pharmacy Shop"}
-      </h2>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, margin: "15px 0" }}>
+      <h2 style={{ fontWeight: 800, color: '#2d3748', fontSize: 32, marginBottom: 8, letterSpacing: 1 }}>
+        🩺 {slug ? `${slug}'s Pharmacy` : "All Medicine Listings"}
+      </h2>
+      {!slug && (
+        <div style={{ color: '#6366f1', fontSize: 18, marginBottom: 18, fontWeight: 500 }}>
+          Browse and compare all medications. Sort by closest to you and price.
+        </div>
+      )}
+
+      {/* Sticky search/filter bar */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: 16, margin: "15px 0",
+        position: 'sticky', top: 0, zIndex: 10, background: 'rgba(244,246,251,0.95)', padding: '12px 0', borderRadius: 12, boxShadow: '0 2px 8px #c7d2fe22'
+      }}>
         <input
           type="text"
           placeholder="Search medicines, ingredients, or class..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{
-            padding: "10px",
+            padding: "12px",
             width: "100%",
             maxWidth: "400px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
+            borderRadius: "10px",
+            border: '1.5px solid #b3b3e7',
+            fontSize: 17,
+            background: '#f9f9ff',
+            boxShadow: '0 1px 4px #c7d2fe22',
           }}
         />
         <select
           value={selectedState}
           onChange={e => setSelectedState(e.target.value)}
           style={{
-            padding: '10px',
-            borderRadius: 8,
-            border: '1px solid #ccc',
-            fontSize: 16,
+            padding: '12px',
+            borderRadius: 10,
+            border: '1.5px solid #b3b3e7',
+            fontSize: 17,
             minWidth: 180,
-            background: '#f9f9f9',
+            background: '#f9f9ff',
             color: '#222',
             outline: 'none',
+            boxShadow: '0 1px 4px #c7d2fe22',
           }}
         >
           <option value="">Sort by state</option>
@@ -303,8 +324,16 @@ export default function Shop() {
         </select>
       </div>
 
-      {displayProducts.length === 0 ? (
-        <p style={{ color: "gray" }}>
+      {/* Loader */}
+      {loading ? (
+        <div style={{ textAlign: 'center', marginTop: 60 }}>
+          <div className="loader" style={{
+            width: 48, height: 48, border: '5px solid #e0e7ff', borderTop: '5px solid #6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: 'auto'
+          }} />
+          <style>{`@keyframes spin { 0%{transform:rotate(0deg);} 100%{transform:rotate(360deg);} }`}</style>
+        </div>
+      ) : displayProducts.length === 0 ? (
+        <p style={{ color: "gray", marginTop: 40, fontSize: 18 }}>
           {slug
             ? "No medicines found for this pharmacy. Please check the link or select a valid business."
             : "No medicines found."}
@@ -313,64 +342,52 @@ export default function Shop() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-            gap: "20px",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: "28px",
+            marginTop: 18,
           }}
         >
           {displayProducts.map((p) => (
             <div
               key={p.id}
               style={{
-                border: "1px solid #ddd",
-                padding: "15px",
-                borderRadius: "10px",
+                border: "1.5px solid #e0e7ff",
+                padding: "18px 16px 16px 16px",
+                borderRadius: "16px",
                 background: "#fff",
-                boxShadow: "0 1px 6px rgba(0,0,0,0.1)",
+                boxShadow: "0 2px 12px #c7d2fe22",
                 position: "relative",
-                minHeight: "220px"
+                minHeight: "240px",
+                transition: 'box-shadow 0.2s, transform 0.2s',
+                cursor: 'pointer',
+                willChange: 'transform',
+                display: 'flex', flexDirection: 'column', alignItems: 'stretch',
               }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 32px #6366f133'; e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px #c7d2fe22'; e.currentTarget.style.transform = 'none'; }}
             >
               {/* Registered Only Badge */}
               {p.registeredOnly && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "10px",
-                    left: "10px",
-                    background: "#7c3aed",
-                    color: "#fff",
-                    padding: "2px 10px",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    fontWeight: "bold",
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                    letterSpacing: "1px"
-                  }}
-                >
-                  Registered Only
-                </span>
+                <span style={{
+                  position: "absolute", top: "10px", left: "10px",
+                  background: "#7c3aed", color: "#fff", padding: "2px 10px",
+                  borderRadius: "16px", fontSize: "13px", fontWeight: "bold",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.08)", letterSpacing: "1px",
+                  display: 'inline-block', minWidth: 80, textAlign: 'center',
+                }}>Registered Only</span>
               )}
               {/* POM Badge */}
               {p.isPOM && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: p.registeredOnly ? "38px" : "10px",
-                    left: "10px",
-                    background: "#e53935",
-                    color: "#fff",
-                    padding: "2px 10px",
-                    borderRadius: "8px",
-                    fontSize: "13px",
-                    fontWeight: "bold",
-                    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                    letterSpacing: "1px"
-                  }}
-                >
-                  POM
-                </span>
+                <span style={{
+                  position: "absolute", top: p.registeredOnly ? "38px" : "10px", left: "10px",
+                  background: "#e53935", color: "#fff", padding: "2px 10px",
+                  borderRadius: "16px", fontSize: "13px", fontWeight: "bold",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.08)", letterSpacing: "1px",
+                  display: 'inline-block', minWidth: 40, textAlign: 'center',
+                }}>POM</span>
               )}
-              {p.image && (
+              {/* Product Image or Fallback */}
+              {p.image ? (
                 <img
                   src={p.image}
                   alt={p.name}
@@ -378,16 +395,25 @@ export default function Shop() {
                     width: "100%",
                     height: "150px",
                     objectFit: "cover",
-                    borderRadius: "6px",
+                    borderRadius: "10px",
                     marginBottom: "10px",
+                    background: '#f4f6fb',
                   }}
+                  onError={e => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/300x150?text=No+Image'; }}
                 />
+              ) : (
+                <div style={{
+                  width: '100%', height: 150, borderRadius: 10, marginBottom: 10,
+                  background: '#f4f6fb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b3b3e7', fontSize: 22, fontWeight: 700
+                }}>
+                  No Image
+                </div>
               )}
-              <strong>{p.name || "Unnamed Drug"}</strong>
-              <p><em>{p.ingredient || "No ingredient listed"}</em></p>
-              <p>Class: {p.class || "No class listed"}</p>
-              <p>Price: ₦{p.price !== undefined ? p.price : "N/A"}</p>
-              <p style={{ fontSize: "0.9em", color: "#555" }}>
+              <strong style={{ fontSize: 19, color: '#2d3748', marginBottom: 2 }}>{p.name || "Unnamed Drug"}</strong>
+              <p style={{ fontSize: 15, color: '#6366f1', margin: 0 }}><em>{p.ingredient || "No ingredient listed"}</em></p>
+              <p style={{ fontSize: 14, color: '#64748b', margin: '4px 0 0 0' }}>Class: {p.class || "No class listed"}</p>
+              <p style={{ fontSize: 16, color: '#059669', fontWeight: 700, margin: '6px 0 0 0' }}>₦{p.price !== undefined ? p.price : "N/A"}</p>
+              <p style={{ fontSize: "0.95em", color: "#555", margin: '6px 0 0 0' }}>
                 🏥 {p.ownerSlug ? (
                   <a
                     href={`/store/${p.ownerSlug}`}
@@ -401,13 +427,20 @@ export default function Shop() {
               </p>
               <button
                 onClick={() => addToCart(p)}
-                style={{ marginTop: "10px" }}
+                style={{
+                  marginTop: "12px",
+                  background: '#6366f1', color: '#fff', border: 'none', borderRadius: 10,
+                  padding: '12px 0', fontWeight: 700, fontSize: 16, cursor: 'pointer',
+                  boxShadow: '0 2px 8px #6366f122', transition: 'background 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#4f46e5'}
+                onMouseLeave={e => e.currentTarget.style.background = '#6366f1'}
                 disabled={typeof addToCart !== "function"}
               >
                 Add to Cart
               </button>
               {p.minutesAway && p.minutesAway !== Infinity && (
-                <p style={{ color: "#4caf50", fontWeight: "500" }}>
+                <p style={{ color: "#059669", fontWeight: "600", margin: '8px 0 0 0' }}>
                   {p.minutesAway <= 1
                     ? "📍 Right here"
                     : `💨 ~${p.minutesAway} mins away`}
@@ -419,11 +452,12 @@ export default function Shop() {
                     position: "absolute",
                     top: "10px",
                     right: "10px",
-                    background: "#4caf50",
+                    background: "#059669",
                     color: "#fff",
-                    padding: "3px 6px",
-                    borderRadius: "4px",
-                    fontSize: "12px",
+                    padding: "3px 10px",
+                    borderRadius: "8px",
+                    fontSize: "13px",
+                    fontWeight: 600,
                   }}
                 >
                   Added!

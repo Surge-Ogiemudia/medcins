@@ -1,102 +1,48 @@
-// src/auth/Auth.jsx
-import { useState } from "react";
+  import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { auth, db } from "../firebase";
 import {
-  getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut,
+  signOut
 } from "firebase/auth";
-import { app, db } from "../firebase";
-import { doc, setDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import {
+  doc, setDoc, getDoc, collection, query, where, getDocs
+} from "firebase/firestore";
+import NIGERIAN_STATES from "../constants/nigerianStates";
+  
+  export default function Auth() {
+    const navigate = useNavigate();
+  
+    // Define all your state hooks here
+    const [user, setUser] = useState(null);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [businessName, setBusinessName] = useState("");
+    const [businessAddress, setBusinessAddress] = useState("");
+    const [businessState, setBusinessState] = useState("");
+    const [businessCity, setBusinessCity] = useState("");
+    const [businessLandmark, setBusinessLandmark] = useState("");
+    const [isBusinessSignupOpen, setIsBusinessSignupOpen] = useState(false);
+    const [isDistributorSignupOpen, setIsDistributorSignupOpen] = useState(false);
+    const [isDeliveryAgentSignupOpen, setIsDeliveryAgentSignupOpen] = useState(false);
+    const [deliveryAgentForm, setDeliveryAgentForm] = useState({});
+    const [deliveryAgentLoading, setDeliveryAgentLoading] = useState(false);
+    const initialDeliveryAgentForm = {}; // Define your initial form state
+  
 
-const auth = getAuth(app);
-
-// List of all Nigerian states
-const NIGERIAN_STATES = [
-  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
-];
-
-const initialDeliveryAgentForm = {
-  companyName: "",
-  phoneNumber: "",
-  whatsappNumber: "",
-  rcNumber: "",
-  businessAddress: "",
-  email: "",
-  coverageArea: "",
-  operatingHours: "",
-  logoUrl: "",
-  state: "",
-  city: "",
-  landmark: ""
-};
-
-export default function Auth() {
-  const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  // Show extra fields for customer signup only when needed
-  const [password, setPassword] = useState("");
-  const [user, setUser] = useState(null);
-
-  const [isBusinessSignupOpen, setIsBusinessSignupOpen] = useState(false);
-  const [isDistributorSignupOpen, setIsDistributorSignupOpen] = useState(false);
-  const [isDeliveryAgentSignupOpen, setIsDeliveryAgentSignupOpen] = useState(false);
-  const [deliveryAgentForm, setDeliveryAgentForm] = useState(initialDeliveryAgentForm);
-  const [deliveryAgentLoading, setDeliveryAgentLoading] = useState(false);
-  const [businessName, setBusinessName] = useState("");
-  const [businessAddress, setBusinessAddress] = useState("");
-  const [businessState, setBusinessState] = useState("");
-  const [businessCity, setBusinessCity] = useState("");
-  const [businessLandmark, setBusinessLandmark] = useState("");
-  const [licenseNumber, setLicenseNumber] = useState("");
-  const [businessPhone, setBusinessPhone] = useState("");
-  const [businessWhatsapp, setBusinessWhatsapp] = useState("");
-  const [distributorName, setDistributorName] = useState("");
-  const [distributorLicense, setDistributorLicense] = useState("");
-  const [distributorState, setDistributorState] = useState("");
-  const [distributorCity, setDistributorCity] = useState("");
-  const [distributorLandmark, setDistributorLandmark] = useState("");
-  const [customerState, setCustomerState] = useState("");
-  const [customerCity, setCustomerCity] = useState("");
-  const [customerLandmark, setCustomerLandmark] = useState("");
-  const [location, setLocation] = useState(null);
-  const [loadingLocation, setLoadingLocation] = useState(false);
-  const [distributorLocation, setDistributorLocation] = useState(null);
-  const [loadingDistributorLocation, setLoadingDistributorLocation] = useState(false);
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [name, setName] = useState("");
-  const [state, setState] = useState("");
-  const [city, setCity] = useState("");
-  const [landmark, setLandmark] = useState("");
-  // -------- GET DISTRIBUTOR LOCATION --------
-  const captureDistributorLocation = async () => {
-    if (!navigator.geolocation) {
-      alert("❌ Geolocation is not supported by your browser.");
-      return null;
-    }
-    setLoadingDistributorLocation(true);
-    return new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-          setDistributorLocation(coords);
-          setLoadingDistributorLocation(false);
-          resolve(coords);
-        },
-        (err) => {
-          setLoadingDistributorLocation(false);
-          alert("⚠️ Location access denied or unavailable.");
-          reject(err);
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-      );
-    });
-  };
+    // Redirect logic moved to useEffect to avoid hook/render errors
+    React.useEffect(() => {
+      if (user) {
+        if (user.role === "delivery-agent" && user.slug) {
+          navigate(`/agent/${user.slug}`);
+        } else {
+          navigate("/");
+        }
+      }
+    }, [user, navigate]);
+  
+    // ...rest of your code (all the hooks, functions, and return JSX)...
 
   // -------- DISTRIBUTOR SIGNUP --------
   const signupDistributor = async () => {
@@ -127,7 +73,7 @@ export default function Auth() {
       };
       await writeUserDoc(newUser.uid, userData);
       setUser({ ...newUser, ...userData });
-      alert(`✅ Distributor signup successful!\nYour distributor link: medcins.com/store/${slug}`);
+  alert(`✅ Distributor signup successful!\nYour distributor link: pharmastack.com/store/${slug}`);
       // reset
       setIsDistributorSignupOpen(false);
       setDistributorName("");
@@ -276,7 +222,7 @@ export default function Auth() {
       console.log("Firestore user record created for business:", userData);
 
       setUser({ ...newUser, ...userData });
-      alert(`✅ Business signup successful!\nYour store link: medcins.com/store/${slug}`);
+  alert(`✅ Business signup successful!\nYour store link: pharmastack.com/store/${slug}`);
 
       // reset
   setIsBusinessSignupOpen(false);
@@ -401,7 +347,7 @@ export default function Auth() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #e0e7ff 0%, #f4f6fb 100%)', fontFamily: 'Inter, Arial, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-      <h2 style={{ fontWeight: 700, color: '#2d3748', marginBottom: 24, letterSpacing: 1, fontSize: 32 }}>🔐 Welcome to Medcins</h2>
+  <h2 style={{ fontWeight: 700, color: '#2d3748', marginBottom: 24, letterSpacing: 1, fontSize: 32 }}>🔐 Welcome to Pharmastack</h2>
       {user && (
         <button style={{position:'absolute',top:20,right:20, background:'#e53e3e', color:'#fff', border:'none', borderRadius:6, padding:'8px 18px', fontWeight:600, cursor:'pointer'}} onClick={logout}>Logout</button>
       )}
@@ -422,7 +368,7 @@ export default function Auth() {
                     rel="noopener noreferrer"
                     style={{ color: '#6366f1', textDecoration: 'underline' }}
                   >
-                    medcins.com/store/{user.businessSlug}
+                    pharmastack.com/store/{user.businessSlug}
                   </a>
                 </p>
               </>

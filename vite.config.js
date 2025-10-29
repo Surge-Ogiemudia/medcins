@@ -3,13 +3,13 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: mode === 'production' ? '/medcins/' : '/',
+  base: mode === 'production' ? '/pharmastack/' : '/',
   plugins: [react()],
   server: {
     allowedHosts: [
-      'eight-bees-end.loca.lt',
-      'gentle-toes-serve.loca.lt',
-      'medcinsdemo.loca.lt'
+  'eight-bees-end.loca.lt',
+  'gentle-toes-serve.loca.lt',
+  'pharmastackdemo.loca.lt'
     ],
     // ...other server options...
   },

@@ -58,6 +58,7 @@ export default function BusinessShop() {
   const auth = getAuth();
   const { slug } = useParams(); // e.g., sugarpharmacy
   const [business, setBusiness] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [medicines, setMedicines] = useState([]);
   const [displayProducts, setDisplayProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -125,20 +126,18 @@ export default function BusinessShop() {
   // --- Fetch business by slug ---
   useEffect(() => {
     if (!slug) return;
-
+    setLoading(true);
     const fetchBusiness = async () => {
       const q = query(collection(db, "users"), where("slug", "==", slug));
       const snapshot = await getDocs(q);
-
       if (!snapshot.empty) {
         const bizDoc = snapshot.docs[0];
         setBusiness({ uid: bizDoc.id, ...bizDoc.data() });
       } else {
-        console.warn("Business not found for slug:", slug);
         setBusiness(null);
       }
+      setLoading(false);
     };
-
     fetchBusiness();
   }, [slug]);
 
@@ -219,6 +218,23 @@ export default function BusinessShop() {
 
     setDisplayProducts(filtered);
   }, [medicines, searchTerm, userLocation, business]);
+
+  if (loading) {
+    return (
+      <div style={{ padding: "30px", textAlign: "center" }}>
+        <h2>Loading store...</h2>
+      </div>
+    );
+  }
+  if (business === null) {
+    return (
+      <div style={{ padding: "30px", textAlign: "center" }}>
+        <h2>Store not found</h2>
+        <p>The store you are looking for does not exist or the link is incorrect.</p>
+        <a href="/store" style={{ color: "#7c3aed", textDecoration: "underline" }}>Browse all stores</a>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "30px" }}>

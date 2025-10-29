@@ -9,7 +9,7 @@ import Slider from "react-slick";
 const testimonials = [
   {
     name: "Ada O.",
-    text: "Medcins made it so easy to get my medicines delivered. Fast, reliable, and affordable!",
+    text: "Pharmastack made it so easy to get my medicines delivered. Fast, reliable, and affordable!",
     avatar: "https://randomuser.me/api/portraits/men/76.jpg", // Black woman stock photo alternative
     city: "Lagos"
   },
@@ -50,13 +50,12 @@ export default function TestimonialsCarousel() {
   return (
     <Box sx={{ width: '100%', my: 6 }}>
       <Typography variant="h5" color="primary" sx={{ mb: 3, fontWeight: 700, textAlign: 'center' }}>
-        What Our Customers Say
+        Testimonials of Lives Transformed
       </Typography>
       <Slider {...sliderSettings}>
         {testimonials.map((t, idx) => (
           <Box key={idx} sx={{ px: 2 }}>
-            <Card sx={{ borderRadius: 3, boxShadow: 2, minHeight: 180, display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
-              <Avatar src={t.avatar} alt={t.name} sx={{ width: 56, height: 56, mb: 1 }} />
+            <Card sx={{ borderRadius: 3, boxShadow: 2, minHeight: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2, background: 'linear-gradient(135deg, #f4f6fb 60%, #e0e7ff 100%)' }}>
               <CardContent sx={{ textAlign: 'center', p: 0 }}>
                 <Typography variant="body1" sx={{ fontStyle: 'italic', mb: 1 }}>
                   "{t.text}"

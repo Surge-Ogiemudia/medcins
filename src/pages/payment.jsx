@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Box, Card, CardContent, Typography, Grid, FormControl, Select, MenuItem, TextField, Button, Divider } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
@@ -90,7 +91,6 @@ export default function Payment() {
       setCouponError("");
     }
   };
-
   const isDeliveryInfoValid = () => {
     const requiredFields = ["name", "phone", "address", "city", "state"];
     return requiredFields.every((field) => deliveryInfo[field]?.trim());
@@ -151,135 +151,225 @@ export default function Payment() {
   if (!user) return <p>Loading...</p>;
 
   return (
-    <div style={{ padding: "30px", maxWidth: "600px", margin: "auto" }}>
-      <h2>💳 Checkout</h2>
-
-      {cart.length === 0 ? (
-        <p>No items in cart.</p>
-      ) : (
-        <>
-          <h3>🛒 Order Summary</h3>
-          <ul style={{ listStyle: "none", padding: 0 }}>
-            {cart.map((item, i) => (
-              <li key={i} style={{ marginBottom: "8px" }}>
-                {item.name} – ₦{item.price} x {item.quantity || 1} = ₦
-                {item.price * (item.quantity || 1)}
-              </li>
-            ))}
-          </ul>
-          <p>Subtotal: ₦{subtotal}</p>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ fontWeight: 500 }}>Delivery Type:</label>
-            <select
-              value={deliveryType}
-              onChange={e => setDeliveryType(e.target.value)}
-              style={{ marginLeft: 10, padding: '6px', borderRadius: '5px' }}
-            >
-              <option value="standard">Standard Delivery (1-2 days) - ₦500</option>
-              <option value="express">Express Delivery (30mins-3hrs) - ₦3000</option>
-            </select>
-          </div>
-          <p>Delivery Fee: ₦{couponData?.removeDelivery ? 0 : deliveryFee}</p>
-          <p style={{ color: pomFee > 0 ? "#e53935" : undefined, fontWeight: pomFee > 0 ? 500 : undefined }}>
-            POM Fee: ₦{couponData?.removePOM ? 0 : pomFee}
-          </p>
-          {couponData?.percent > 0 && (
-            <p style={{ color: "#007bff" }}>Discount: -₦{Math.round((subtotal + pomFee + (couponData?.removeDelivery ? 0 : deliveryFee)) * (couponData.percent / 100))}</p>
-          )}
-          {/* Coupon Input - moved here */}
-          <div style={{ marginBottom: 18 }}>
-            <input
-              type="text"
-              placeholder="Coupon code"
-              value={coupon}
-              onChange={e => setCoupon(e.target.value)}
-              style={{ marginRight: 10 }}
-            />
-            <button type="button" onClick={handleApplyCoupon}>Apply Coupon</button>
-            {couponError && <span style={{ color: "#e53935", marginLeft: 10 }}>{couponError}</span>}
-            {couponData && (
-              <span style={{ color: "#007bff", marginLeft: 10 }}>
-                Applied: {couponData.code} ({couponData.percent}% off{couponData.removePOM ? ", no POM fee" : ""}{couponData.removeDelivery ? ", no delivery fee" : ""})
-              </span>
-            )}
-          </div>
-          <p>
-            <strong>Grand Total: ₦{grandTotal}</strong>
-          </p>
-
-          <h3>📍 Delivery Information</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <input
-              type="text"
-              name="name"
-              placeholder="Full Name"
-              value={deliveryInfo.name}
-              onChange={handleInputChange}
-            />
-            <input
-              type="text"
-              name="phone"
-              placeholder="Phone Number"
-              value={deliveryInfo.phone}
-              onChange={handleInputChange}
-            />
-            <input
-              type="text"
-              name="address"
-              placeholder="Street Address"
-              value={deliveryInfo.address}
-              onChange={handleInputChange}
-            />
-            <input
-              type="text"
-              name="city"
-              placeholder="City"
-              value={deliveryInfo.city}
-              onChange={handleInputChange}
-            />
-            <input
-              type="text"
-              name="state"
-              placeholder="State"
-              value={deliveryInfo.state}
-              onChange={handleInputChange}
-            />
-            <textarea
-              name="instructions"
-              placeholder="Delivery Instructions (optional)"
-              value={deliveryInfo.instructions}
-              onChange={handleInputChange}
-            />
-          </div>
-
-          {isDeliveryInfoValid() ? (
-            grandTotal > 0 ? (
-              <PaystackButton
-                text="Pay Now 💳"
-                className="paystack-button"
-                {...config}
-                callback={handlePaymentSuccess}
-                close={handlePaymentClose}
-                style={{ marginTop: "20px" }}
-              />
-            ) : (
-              <button
-                onClick={() => handlePaymentSuccess({ reference: "COUPON_FREE" })}
-                style={{ marginTop: "20px", background: "#007bff", color: "#fff", border: "none", borderRadius: "5px", padding: "10px 20px", fontWeight: "bold" }}
-              >
-                Complete Order (Free)
-              </button>
-            )
+    <Box sx={{ p: 3, maxWidth: 600, mx: "auto" }}>
+      <Card>
+        <CardContent>
+          <Typography variant="h5" fontWeight={700} gutterBottom>
+            💳 Checkout
+          </Typography>
+          {cart.length === 0 ? (
+            <Typography>No items in cart.</Typography>
           ) : (
-            <button
-              onClick={handleDisabledClick}
-              style={{ marginTop: "20px", cursor: "not-allowed" }}
-            >
-              Pay Now 💳
-            </button>
+            <>
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                🛒 Order Summary
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                {cart.map((item, i) => (
+                  <Box key={i} sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
+                    <Typography>
+                      {item.name} <span style={{ color: "#888", fontSize: 13 }}>x{item.quantity || 1}</span>
+                    </Typography>
+                    <Typography fontWeight={500}>₦{item.price * (item.quantity || 1)}</Typography>
+                  </Box>
+                ))}
+              </Box>
+              <Grid container spacing={1} sx={{ mb: 1 }}>
+                <Grid item xs={7}>
+                  <Typography>Subtotal:</Typography>
+                </Grid>
+                <Grid item xs={5}>
+                  <Typography fontWeight={500}>₦{subtotal}</Typography>
+                </Grid>
+                <Grid item xs={7}>
+                  <Typography>Delivery Type:</Typography>
+                </Grid>
+                <Grid item xs={5}>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={deliveryType}
+                      onChange={e => setDeliveryType(e.target.value)}
+                      sx={{ bgcolor: "#fff", borderRadius: 2 }}
+                    >
+                      <MenuItem value="standard">Standard (1-2 days) - ₦500</MenuItem>
+                      <MenuItem value="express">Express (30mins-3hrs) - ₦3000</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={7}>
+                  <Typography>Delivery Fee:</Typography>
+                </Grid>
+                <Grid item xs={5}>
+                  <Typography fontWeight={500}>₦{couponData?.removeDelivery ? 0 : deliveryFee}</Typography>
+                </Grid>
+                <Grid item xs={7}>
+                  <Typography color={pomFee > 0 ? "error" : "inherit"}>POM Fee:</Typography>
+                </Grid>
+                <Grid item xs={5}>
+                  <Typography fontWeight={500} color={pomFee > 0 ? "error" : "inherit"}>
+                    ₦{couponData?.removePOM ? 0 : pomFee}
+                  </Typography>
+                </Grid>
+                {couponData?.percent > 0 && (
+                  <>
+                    <Grid item xs={7}>
+                      <Typography color="primary">Discount:</Typography>
+                    </Grid>
+                    <Grid item xs={5}>
+                      <Typography color="primary">
+                        -₦{Math.round((subtotal + pomFee + (couponData?.removeDelivery ? 0 : deliveryFee)) * (couponData.percent / 100))}
+                      </Typography>
+                    </Grid>
+                  </>
+                )}
+                <Grid item xs={7}>
+                  <Typography fontWeight={700}>Grand Total:</Typography>
+                </Grid>
+                <Grid item xs={5}>
+                  <Typography fontWeight={700}>₦{grandTotal}</Typography>
+                </Grid>
+              </Grid>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <TextField
+                  size="small"
+                  label="Coupon code"
+                  value={coupon}
+                  onChange={e => setCoupon(e.target.value)}
+                  sx={{ mr: 1, flex: 1 }}
+                />
+                <Button variant="outlined" onClick={handleApplyCoupon}>
+                  Apply
+                </Button>
+              </Box>
+              {couponError && <Alert severity="error" sx={{ mb: 1 }}>{couponError}</Alert>}
+              {couponData && (
+                <Alert severity="success" sx={{ mb: 1 }}>
+                  Applied: {couponData.code} ({couponData.percent}% off
+                  {couponData.removePOM ? ", no POM fee" : ""}
+                  {couponData.removeDelivery ? ", no delivery fee" : ""}
+                  )
+                </Alert>
+              )}
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                📍 Delivery Information
+              </Typography>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Full Name"
+                    name="name"
+                    value={deliveryInfo.name}
+                    onChange={handleInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Phone Number"
+                    name="phone"
+                    value={deliveryInfo.phone}
+                    onChange={handleInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Street Address"
+                    name="address"
+                    value={deliveryInfo.address}
+                    onChange={handleInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="City"
+                    name="city"
+                    value={deliveryInfo.city}
+                    onChange={handleInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="State"
+                    name="state"
+                    value={deliveryInfo.state}
+                    onChange={handleInputChange}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Delivery Instructions (optional)"
+                    name="instructions"
+                    value={deliveryInfo.instructions}
+                    onChange={handleInputChange}
+                    multiline
+                    minRows={2}
+                  />
+                </Grid>
+              </Grid>
+              <Box sx={{ mt: 2, textAlign: "center" }}>
+                {isDeliveryInfoValid() ? (
+                  grandTotal > 0 ? (
+                    <PaystackButton
+                      text="Pay Now 💳"
+                      className="paystack-button"
+                      {...config}
+                      callback={handlePaymentSuccess}
+                      close={handlePaymentClose}
+                      style={{
+                        marginTop: "10px",
+                        minWidth: 180,
+                        fontWeight: 600,
+                        fontSize: 18,
+                        borderRadius: 8,
+                        background: "#007bff",
+                        color: "#fff",
+                      }}
+                    />
+                  ) : (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      sx={{ mt: 1, minWidth: 180, fontWeight: 600, fontSize: 18, borderRadius: 8 }}
+                      onClick={() => handlePaymentSuccess({ reference: "COUPON_FREE" })}
+                    >
+                      Complete Order (Free)
+                    </Button>
+                  )
+                ) : (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    sx={{
+                      mt: 1,
+                      minWidth: 180,
+                      fontWeight: 600,
+                      fontSize: 18,
+                      borderRadius: 8,
+                      opacity: 0.6,
+                    }}
+                    onClick={handleDisabledClick}
+                    disabled
+                  >
+                    Pay Now 💳
+                  </Button>
+                )}
+              </Box>
+            </>
           )}
-        </>
-      )}
-    </div>
+        </CardContent>
+      </Card>
+    </Box>
   );
 }
