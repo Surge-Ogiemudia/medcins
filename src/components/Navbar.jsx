@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+
+// Responsive helper
+const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 600;
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
@@ -24,15 +27,16 @@ const navStyle = {
   width: "100%",
 };
 
-const navContainerStyle = {
+const getNavContainerStyle = () => ({
   maxWidth: 1200,
   margin: "0 auto",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: "0 24px",
-  height: 70,
-};
+  padding: isMobile() ? "0 8px" : "0 24px",
+  height: isMobile() ? 54 : 70,
+  flexWrap: isMobile() ? "wrap" : "nowrap",
+});
 
 const logoBoxStyle = {
   display: "flex",
@@ -41,13 +45,15 @@ const logoBoxStyle = {
   marginLeft: 0, // fixed
 };
 
-const navLinksGroupStyle = {
+const getNavLinksGroupStyle = () => ({
   display: "flex",
   alignItems: "center",
-  gap: 24,
+  gap: isMobile() ? 8 : 24,
   flexGrow: 1,
-  justifyContent: "center", // centered between logo and right section
-};
+  justifyContent: "center",
+  flexWrap: isMobile() ? "wrap" : "nowrap",
+  fontSize: isMobile() ? 13 : 16,
+});
 
 const navRightStyle = {
   display: "flex",
@@ -61,8 +67,8 @@ const linkStyle = {
   color: "#2d3748",
   textDecoration: "none",
   fontWeight: 600,
-  fontSize: 16,
-  padding: "8px 14px",
+  fontSize: isMobile() ? 13 : 16,
+  padding: isMobile() ? "6px 8px" : "8px 14px",
   borderRadius: 8,
   transition: "background 0.2s, color 0.2s",
 };
@@ -206,7 +212,7 @@ export default function Navbar() {
 
   return (
     <nav style={navStyle}>
-      <div style={navContainerStyle}>
+      <div style={getNavContainerStyle()}>
         {/* Logo Section */}
         <div style={logoBoxStyle}>
           {isAdminRole(userRole) ? (
@@ -251,7 +257,7 @@ export default function Navbar() {
         </div>
 
         {/* Center Nav Links */}
-        <div style={navLinksGroupStyle}>
+  <div style={getNavLinksGroupStyle()}>
           {userRole !== "delivery-agent" && (
             <>
               {storeSlug ? (

@@ -33,41 +33,57 @@ const testimonials = [
   }
 ];
 
-const sliderSettings = {
-  infinite: true,
-  speed: 900,
-  slidesToShow: 2,
-  slidesToScroll: 1,
-  autoplay: true,
-  autoplaySpeed: 4000,
-  arrows: false,
-  responsive: [
-    { breakpoint: 900, settings: { slidesToShow: 1 } }
-  ]
-};
-
 export default function TestimonialsCarousel() {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 600;
+  const settings = {
+    dots: true,
+    infinite: true,
+    speed: 500,
+    slidesToShow: 2,
+    slidesToScroll: 1,
+    autoplay: true,
+    autoplaySpeed: 4000,
+    arrows: false,
+    responsive: [
+      {
+        breakpoint: 900,
+        settings: {
+          slidesToShow: 1,
+        },
+      },
+      {
+        breakpoint: 600,
+        settings: {
+          slidesToShow: 1,
+          centerMode: false,
+          variableWidth: false,
+        },
+      },
+    ],
+  };
   return (
-    <Box sx={{ width: '100%', my: 6 }}>
-      <Typography variant="h5" color="primary" sx={{ mb: 3, fontWeight: 700, textAlign: 'center' }}>
-        Testimonials of Lives Transformed
-      </Typography>
-      <Slider {...sliderSettings}>
+    <div style={{
+      maxWidth: 900,
+      margin: '0 auto',
+      padding: isMobile ? '12px 0' : '32px 0',
+    }}>
+      <Slider {...settings}>
         {testimonials.map((t, idx) => (
-          <Box key={idx} sx={{ px: 2 }}>
-            <Card sx={{ borderRadius: 3, boxShadow: 2, minHeight: 140, display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2, background: 'linear-gradient(135deg, #f4f6fb 60%, #e0e7ff 100%)' }}>
-              <CardContent sx={{ textAlign: 'center', p: 0 }}>
-                <Typography variant="body1" sx={{ fontStyle: 'italic', mb: 1 }}>
-                  "{t.text}"
-                </Typography>
-                <Typography variant="subtitle2" color="primary" fontWeight={700}>
-                  {t.name} <span style={{ color: '#888', fontWeight: 400 }}>({t.city})</span>
-                </Typography>
-              </CardContent>
-            </Card>
-          </Box>
+          <div key={idx} style={{
+            padding: isMobile ? 12 : 24,
+            background: '#fff',
+            borderRadius: 16,
+            boxShadow: '0 2px 12px #c7d2fe22',
+            margin: isMobile ? '0 2px' : '0 8px',
+            minHeight: isMobile ? 120 : 180,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 600, color: '#2d3748', marginBottom: 8 }}>{t.name}</div>
+            <div style={{ fontSize: isMobile ? 12 : 15, color: '#6366f1', marginBottom: 8 }}>{t.city}</div>
+            <div style={{ fontSize: isMobile ? 13 : 16, color: '#222', fontStyle: 'italic' }}>&ldquo;{t.text}&rdquo;</div>
+          </div>
         ))}
       </Slider>
-    </Box>
+    </div>
   );
 }

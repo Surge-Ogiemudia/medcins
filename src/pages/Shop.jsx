@@ -9,6 +9,10 @@ const NIGERIAN_STATES = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT", "Gombe", "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara"
 ];
 
+function isMobile() {
+  return typeof window !== 'undefined' && window.innerWidth <= 600;
+}
+
 export default function Shop() {
   const [showCartNotice, setShowCartNotice] = useState(false);
   const { slug } = useParams(); // ✅ capture /:slug if present
@@ -248,7 +252,7 @@ export default function Shop() {
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #f4f6fb 0%, #e0e7ff 100%)',
-      padding: '30px',
+      padding: isMobile() ? '10px 2vw' : '30px',
       position: 'relative',
       fontFamily: 'Inter, Arial, sans-serif',
     }}>
@@ -272,7 +276,7 @@ export default function Shop() {
         </div>
       )}
 
-      <h2 style={{ fontWeight: 800, color: '#2d3748', fontSize: 32, marginBottom: 8, letterSpacing: 1 }}>
+      <h2 style={{ fontWeight: 800, color: '#2d3748', fontSize: isMobile() ? 22 : 32, marginBottom: 8, letterSpacing: 1 }}>
         🩺 {slug ? `${slug}'s Pharmacy` : "All Medicine Listings"}
       </h2>
       {!slug && (
@@ -283,8 +287,8 @@ export default function Shop() {
 
       {/* Sticky search/filter bar */}
       <div style={{
-        display: 'flex', flexWrap: 'wrap', gap: 16, margin: "15px 0",
-        position: 'sticky', top: 0, zIndex: 10, background: 'rgba(244,246,251,0.95)', padding: '12px 0', borderRadius: 12, boxShadow: '0 2px 8px #c7d2fe22'
+        display: 'flex', flexWrap: 'wrap', gap: isMobile() ? 8 : 16, margin: isMobile() ? '8px 0' : '15px 0',
+        position: 'sticky', top: 0, zIndex: 10, background: 'rgba(244,246,251,0.95)', padding: isMobile() ? '6px 0' : '12px 0', borderRadius: 12, boxShadow: '0 2px 8px #c7d2fe22'
       }}>
         <input
           type="text"
@@ -292,12 +296,12 @@ export default function Shop() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           style={{
-            padding: "12px",
-            width: "100%",
-            maxWidth: "400px",
-            borderRadius: "10px",
+            padding: isMobile() ? '8px' : '12px',
+            width: '100%',
+            maxWidth: isMobile() ? '98vw' : '400px',
+            borderRadius: '10px',
             border: '1.5px solid #b3b3e7',
-            fontSize: 17,
+            fontSize: isMobile() ? 15 : 17,
             background: '#f9f9ff',
             boxShadow: '0 1px 4px #c7d2fe22',
           }}
@@ -306,11 +310,11 @@ export default function Shop() {
           value={selectedState}
           onChange={e => setSelectedState(e.target.value)}
           style={{
-            padding: '12px',
+            padding: isMobile() ? '8px' : '12px',
             borderRadius: 10,
             border: '1.5px solid #b3b3e7',
-            fontSize: 17,
-            minWidth: 180,
+            fontSize: isMobile() ? 15 : 17,
+            minWidth: isMobile() ? 120 : 180,
             background: '#f9f9ff',
             color: '#222',
             outline: 'none',
@@ -342,8 +346,8 @@ export default function Shop() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: "28px",
+            gridTemplateColumns: isMobile() ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: isMobile() ? '14px' : '28px',
             marginTop: 18,
           }}
         >
@@ -352,19 +356,19 @@ export default function Shop() {
               key={p.id}
               style={{
                 border: "1.5px solid #e0e7ff",
-                padding: "18px 16px 16px 16px",
+                padding: isMobile() ? '10px 6px 10px 6px' : '18px 16px 16px 16px',
                 borderRadius: "16px",
                 background: "#fff",
                 boxShadow: "0 2px 12px #c7d2fe22",
                 position: "relative",
-                minHeight: "240px",
+                minHeight: isMobile() ? '180px' : '240px',
                 transition: 'box-shadow 0.2s, transform 0.2s',
                 cursor: 'pointer',
                 willChange: 'transform',
                 display: 'flex', flexDirection: 'column', alignItems: 'stretch',
               }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 32px #6366f133'; e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 2px 12px #c7d2fe22'; e.currentTarget.style.transform = 'none'; }}
+              onMouseEnter={e => { if (!isMobile()) { e.currentTarget.style.boxShadow = '0 8px 32px #6366f133'; e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; } }}
+              onMouseLeave={e => { if (!isMobile()) { e.currentTarget.style.boxShadow = '0 2px 12px #c7d2fe22'; e.currentTarget.style.transform = 'none'; } }}
             >
               {/* Registered Only Badge */}
               {p.registeredOnly && (
@@ -393,18 +397,18 @@ export default function Shop() {
                   alt={p.name}
                   style={{
                     width: "100%",
-                    height: "150px",
+                    height: isMobile() ? '90px' : '150px',
                     objectFit: "cover",
                     borderRadius: "10px",
-                    marginBottom: "10px",
+                    marginBottom: isMobile() ? '6px' : '10px',
                     background: '#f4f6fb',
                   }}
                   onError={e => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/300x150?text=No+Image'; }}
                 />
               ) : (
                 <div style={{
-                  width: '100%', height: 150, borderRadius: 10, marginBottom: 10,
-                  background: '#f4f6fb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b3b3e7', fontSize: 22, fontWeight: 700
+                  width: '100%', height: isMobile() ? 90 : 150, borderRadius: 10, marginBottom: isMobile() ? 6 : 10,
+                  background: '#f4f6fb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#b3b3e7', fontSize: isMobile() ? 16 : 22, fontWeight: 700
                 }}>
                   No Image
                 </div>
