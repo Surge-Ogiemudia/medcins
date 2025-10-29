@@ -35,21 +35,21 @@ export default function Home() {
   const medicineSliderSettings = {
     infinite: true,
     speed: 1200,
-    slidesToShow: 4,
+    slidesToShow: 1,
     slidesToScroll: 1,
     autoplay: true,
     autoplaySpeed: 2000,
     arrows: false,
     responsive: [
-      { breakpoint: 1200, settings: { slidesToShow: 3 } },
-      { breakpoint: 900, settings: { slidesToShow: 2 } },
+      { breakpoint: 1200, settings: { slidesToShow: 1 } },
+      { breakpoint: 900, settings: { slidesToShow: 1 } },
       { breakpoint: 600, settings: { slidesToShow: 1 } },
     ],
   };
   const classSliderSettings = {
     infinite: true,
     speed: 1000,
-    slidesToShow: 2,
+    slidesToShow: 1,
     slidesToScroll: 1,
     autoplay: true,
     autoplaySpeed: 2200,
@@ -95,14 +95,14 @@ export default function Home() {
   const pharmacySliderSettings = {
     infinite: true,
     speed: 1200,
-    slidesToShow: 4,
+    slidesToShow: 1,
     slidesToScroll: 1,
     autoplay: true,
     autoplaySpeed: 2200,
     arrows: false,
     responsive: [
-      { breakpoint: 1200, settings: { slidesToShow: 3 } },
-      { breakpoint: 900, settings: { slidesToShow: 2 } },
+      { breakpoint: 1200, settings: { slidesToShow: 1 } },
+      { breakpoint: 900, settings: { slidesToShow: 1 } },
       { breakpoint: 600, settings: { slidesToShow: 1 } },
     ],
   };
@@ -156,7 +156,7 @@ export default function Home() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+  <Container maxWidth="md" sx={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', overflowX: 'hidden', maxWidth: '100vw', padding: 0 }}>
       <Paper elevation={3} sx={{ p: 5, mt: 8, width: '100%', textAlign: 'center', borderRadius: 4, background: 'linear-gradient(135deg, #f4f6fa 60%, #e0e7ff 100%)' }}>
         {/* Welcome Section */}
         <Typography variant="h3" component="h1" fontWeight={700} color="primary" gutterBottom>
