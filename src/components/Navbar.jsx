@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import MenuIcon from "@mui/icons-material/Menu";
 
-// Responsive helper
-const isMobile = () => typeof window !== 'undefined' && window.innerWidth <= 600;
+// Responsive logic is now handled by windowWidth state only
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
@@ -27,16 +27,15 @@ const navStyle = {
   width: "100%",
 };
 
-const getNavContainerStyle = () => ({
+const getNavContainerStyle = (isMobileScreen) => ({
   maxWidth: 1200,
   margin: "0 auto",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  padding: isMobile() ? "0 8px" : "0 24px",
-  height: isMobile() ? 54 : 70,
+  padding: isMobileScreen ? "0 8px" : "0 24px",
   minWidth: 0,
-  flexWrap: "nowrap",
+  flexWrap: "wrap",
   gap: 0,
 });
 
@@ -47,19 +46,19 @@ const logoBoxStyle = {
   marginLeft: 0, // fixed
 };
 
-const getNavLinksGroupStyle = () => ({
+const getNavLinksGroupStyle = (isMobileScreen) => ({
   display: "flex",
   alignItems: "center",
-  gap: isMobile() ? 8 : 24,
+  gap: isMobileScreen ? 8 : 24,
   flexGrow: 1,
   justifyContent: "center",
-  flexWrap: "nowrap",
-  fontSize: isMobile() ? 13 : 16,
+  flexWrap: "wrap",
+  fontSize: isMobileScreen ? 13 : 16,
   minWidth: 0,
-  overflowX: "auto",
-  whiteSpace: "nowrap",
-  scrollbarWidth: "thin",
-  msOverflowStyle: "auto",
+  width: isMobileScreen ? '100%' : 'auto',
+  overflow: 'visible',
+  whiteSpace: 'normal',
+  textAlign: isMobileScreen ? 'center' : 'left',
 });
 
 const navRightStyle = {
@@ -70,20 +69,22 @@ const navRightStyle = {
   minWidth: 120,
 };
 
-const linkStyle = {
+const getLinkStyle = (isMobileScreen) => ({
   color: "#2d3748",
   textDecoration: "none",
   fontWeight: 600,
-  fontSize: isMobile() ? 13 : 16,
-  padding: isMobile() ? "6px 8px" : "8px 14px",
+  fontSize: isMobileScreen ? 13 : 16,
+  padding: isMobileScreen ? "4px 6px" : "8px 14px",
   borderRadius: 8,
   transition: "background 0.2s, color 0.2s",
-  whiteSpace: "nowrap",
+  whiteSpace: 'normal',
   minWidth: 0,
-  maxWidth: "100vw",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-};
+  maxWidth: isMobileScreen ? '100%' : '100vw',
+  overflow: 'visible',
+  textOverflow: 'clip',
+  marginBottom: isMobileScreen ? 2 : 0,
+  flex: isMobileScreen ? '1 1 90px' : '0 0 auto',
+});
 
 const linkActiveStyle = {
   color: "#014d4e",
@@ -110,17 +111,98 @@ const brandLogoStyle = {
   background: "transparent",
 };
 
-function NavLink({ to, children, ...props }) {
+function NavLink({ to, children, isMobileScreen, ...props }) {
   const location = useLocation();
   const isActive = location.pathname === to;
   return (
     <Link
       to={to}
-      style={{ ...linkStyle, ...(isActive ? linkActiveStyle : {}) }}
+      style={{ ...getLinkStyle(isMobileScreen), ...(isActive ? linkActiveStyle : {}) }}
       {...props}
     >
       {children}
     </Link>
+  );
+}
+
+function NavLinks({ userRole, storeSlug, cartCount, isMobileScreen }) {
+  return (
+    <>
+      {userRole !== "delivery-agent" && (
+        <>
+          {storeSlug ? (
+            <>
+              <NavLink to={`/store/${storeSlug}`} isMobileScreen={isMobileScreen}>Shop</NavLink>
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <NavLink to={`/store/${storeSlug}/cart`} isMobileScreen={isMobileScreen}>Cart</NavLink>
+                {cartCount > 0 && (
+                  <span style={{ position: "absolute", top: "-8px", right: "-16px", background: "#e53935", color: "#fff", borderRadius: "50%", padding: "2px 7px", fontSize: "13px", fontWeight: "bold", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" }}>{cartCount}</span>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <NavLink to="/shop" isMobileScreen={isMobileScreen}>Shop</NavLink>
+              <div style={{ position: "relative", display: "inline-block" }}>
+                <NavLink to="/cart" isMobileScreen={isMobileScreen}>Cart</NavLink>
+                {cartCount > 0 && (
+                  <span style={{ position: "absolute", top: "-8px", right: "-16px", background: "#e53935", color: "#fff", borderRadius: "50%", padding: "2px 7px", fontSize: "13px", fontWeight: "bold", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" }}>{cartCount}</span>
+                )}
+              </div>
+            </>
+          )}
+          <NavLink to="/orders" isMobileScreen={isMobileScreen}>Orders</NavLink>
+          {userRole !== "medicine-manager" && <NavLink to="/medinterface" isMobileScreen={isMobileScreen}>Medinterface</NavLink>}
+          {!storeSlug && userRole && userRole !== "customer" && (
+            <>
+              {(userRole === "medicine-manager" || userRole === "admin" || userRole === "delivery-agent") && (
+                <NavLink to="/add-medicine" isMobileScreen={isMobileScreen}>Add Medicine</NavLink>
+              )}
+              {userRole === "admin" && <NavLink to="/admin" isMobileScreen={isMobileScreen}>Admin</NavLink>}
+              {(userRole === "delivery-agent" || userRole === "admin") && <NavLink to="/agents" isMobileScreen={isMobileScreen}>All Agents</NavLink>}
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+function NavUserSection({ userRole, userEmail, userInitial, menuOpen, setMenuOpen, isMobileScreen }) {
+  return (
+    <>
+      {userRole ? (
+        <div style={{ position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div
+              onClick={() => setMenuOpen(!menuOpen)}
+              style={{ width: 38, height: 38, borderRadius: "50%", background: "#00796b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, cursor: "pointer", userSelect: "none", boxShadow: "0 2px 6px rgba(0,0,0,0.1)" }}
+              title={userEmail}
+            >
+              {userInitial}
+            </div>
+            <button
+              onClick={async () => { await getAuth().signOut(); window.location.href = "/pharmastack/#/auth"; }}
+              style={{ width: 38, height: 38, borderRadius: "50%", background: "#e53935", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", border: "none", marginLeft: 0, cursor: "pointer", fontSize: 18, boxShadow: "0 2px 6px rgba(0,0,0,0.1)", transition: "background 0.2s" }}
+              title="Sign Out"
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 13.5L17 10M17 10L13.5 6.5M17 10H7" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/><path d="M10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3" stroke="white" strokeWidth="1.7" strokeLinecap="round"/></svg>
+            </button>
+          </div>
+          {menuOpen && (
+            <div style={{ position: "absolute", top: "46px", right: 0, background: "#fff", borderRadius: 8, boxShadow: "0 4px 10px rgba(0,0,0,0.15)", minWidth: 180, zIndex: 2000, padding: "8px 0" }}>
+              <div style={{ padding: "8px 16px", fontSize: 14, fontWeight: 500, color: "#2d3748", borderBottom: "1px solid #edf2f7", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 180 }}>{userEmail}</div>
+              <button onClick={async () => { await getAuth().signOut(); window.location.href = "/pharmastack/#/auth"; }} style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 16px", border: "none", background: "transparent", color: "#e53e3e", fontWeight: 600, cursor: "pointer" }}>Sign Out</button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <NavLink to="/auth" isMobileScreen={isMobileScreen}>Login</NavLink>
+          <NavLink to="/auth" isMobileScreen={isMobileScreen}>Signup</NavLink>
+        </>
+      )}
+    </>
   );
 }
 
@@ -176,6 +258,16 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [cartCount, setCartCount] = useState(0);
   const [userRole, setUserRole] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const isMobileScreen = windowWidth <= 600;
 
   useEffect(() => {
     const auth = getAuth();
@@ -224,7 +316,7 @@ export default function Navbar() {
 
   return (
     <nav style={navStyle}>
-      <div style={getNavContainerStyle()}>
+  <div style={getNavContainerStyle(isMobileScreen)}>
         {/* Logo Section */}
         <div style={logoBoxStyle}>
           {isAdminRole(userRole) ? (
@@ -268,202 +360,13 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Center Nav Links */}
-  <div style={getNavLinksGroupStyle()}>
-          {userRole !== "delivery-agent" && (
-            <>
-              {storeSlug ? (
-                <>
-                  <NavLink to={`/store/${storeSlug}`}>Shop</NavLink>
-                  <div style={{ position: "relative", display: "inline-block" }}>
-                    <NavLink to={`/store/${storeSlug}/cart`}>Cart</NavLink>
-                    {cartCount > 0 && (
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: "-8px",
-                          right: "-16px",
-                          background: "#e53935",
-                          color: "#fff",
-                          borderRadius: "50%",
-                          padding: "2px 7px",
-                          fontSize: "13px",
-                          fontWeight: "bold",
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
-                        }}
-                      >
-                        {cartCount}
-                      </span>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <NavLink to="/shop">Shop</NavLink>
-                  <div style={{ position: "relative", display: "inline-block" }}>
-                    <NavLink to="/cart">Cart</NavLink>
-                    {cartCount > 0 && (
-                      <span
-                        style={{
-                          position: "absolute",
-                          top: "-8px",
-                          right: "-16px",
-                          background: "#e53935",
-                          color: "#fff",
-                          borderRadius: "50%",
-                          padding: "2px 7px",
-                          fontSize: "13px",
-                          fontWeight: "bold",
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
-                        }}
-                      >
-                        {cartCount}
-                      </span>
-                    )}
-                  </div>
-                </>
-              )}
-              <NavLink to="/orders">Orders</NavLink>
-              {userRole !== "medicine-manager" && <NavLink to="/medinterface">Medinterface</NavLink>}
-
-              {!storeSlug && userRole && userRole !== "customer" && (
-                <>
-                  {(userRole === "medicine-manager" ||
-                    userRole === "admin" ||
-                    userRole === "delivery-agent") && (
-                    <NavLink to="/add-medicine">Add Medicine</NavLink>
-                  )}
-                  {(userRole === "admin") && (
-                    <NavLink to="/admin">Admin</NavLink>
-                  )}
-                  {(userRole === "delivery-agent" || userRole === "admin") && (
-                    <NavLink to="/agents">All Agents</NavLink>
-                  )}
-                </>
-              )}
-            </>
-          )}
+        {/* Nav links and user section always visible, allow wrapping on mobile */}
+        <div style={getNavLinksGroupStyle(isMobileScreen)}>
+          <NavLinks userRole={userRole} storeSlug={storeSlug} cartCount={cartCount} isMobileScreen={isMobileScreen} />
         </div>
-
-        {/* Right Auth/User */}
-
-
-<div style={navRightStyle}>
-  {userRole ? (
-    <div style={{ position: "relative" }}>
-
-      {/* Avatar and Sign Out Button */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div
-          onClick={() => setMenuOpen(!menuOpen)}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: "50%",
-            background: "#00796b",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 700,
-            cursor: "pointer",
-            userSelect: "none",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-          }}
-          title={userEmail}
-        >
-          {userInitial}
+        <div style={navRightStyle}>
+          <NavUserSection userRole={userRole} userEmail={userEmail} userInitial={userInitial} menuOpen={menuOpen} setMenuOpen={setMenuOpen} isMobileScreen={isMobileScreen} />
         </div>
-        <button
-          onClick={async () => {
-            await getAuth().signOut();
-            window.location.href = "/pharmastack/#/auth";
-          }}
-          style={{
-            width: 38,
-            height: 38,
-            borderRadius: "50%",
-            background: "#e53935",
-            color: "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: "none",
-            marginLeft: 0,
-            cursor: "pointer",
-            fontSize: 18,
-            boxShadow: "0 2px 6px rgba(0,0,0,0.1)",
-            transition: "background 0.2s",
-          }}
-          title="Sign Out"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M13.5 13.5L17 10M17 10L13.5 6.5M17 10H7" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3" stroke="white" strokeWidth="1.7" strokeLinecap="round"/>
-          </svg>
-        </button>
-      </div>
-
-      {/* Dropdown */}
-      {menuOpen && (
-        <div
-          style={{
-            position: "absolute",
-            top: "46px",
-            right: 0,
-            background: "#fff",
-            borderRadius: 8,
-            boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
-            minWidth: 180,
-            zIndex: 2000,
-            padding: "8px 0",
-          }}
-        >
-          <div
-            style={{
-              padding: "8px 16px",
-              fontSize: 14,
-              fontWeight: 500,
-              color: "#2d3748",
-              borderBottom: "1px solid #edf2f7",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              maxWidth: 180,
-            }}
-          >
-            {userEmail}
-          </div>
-          <button
-            onClick={async () => {
-              await getAuth().signOut();
-              window.location.href = "/pharmastack/#/auth";
-            }}
-            style={{
-              display: "block",
-              width: "100%",
-              textAlign: "left",
-              padding: "10px 16px",
-              border: "none",
-              background: "transparent",
-              color: "#e53e3e",
-              fontWeight: 600,
-              cursor: "pointer",
-            }}
-          >
-            Sign Out
-          </button>
-        </div>
-      )}
-    </div>
-  ) : (
-    <>
-      <NavLink to="/auth">Login</NavLink>
-      <NavLink to="/auth">Signup</NavLink>
-    </>
-  )}
-</div>
-
       </div>
     </nav>
   );
