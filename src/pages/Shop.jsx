@@ -24,6 +24,7 @@ export default function Shop() {
   const [userLocation, setUserLocation] = useState(null);
   const [selectedState, setSelectedState] = useState("");
   const [loading, setLoading] = useState(true);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
   const auth = getAuth();
 
   // --- helper: haversine + driving-time estimate ---
@@ -114,6 +115,13 @@ export default function Shop() {
       setLoading(false);
     });
     return () => unsub();
+  }, []);
+
+  // Track window width so we can adapt grid columns and small-card styles
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   // --- Group, filter, sort ---
@@ -346,27 +354,35 @@ export default function Shop() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: isMobile() ? "1fr" : "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: isMobile() ? '14px' : '28px',
+            gridTemplateColumns:
+              // On very narrow phones, show 3 compact tiles across (if width allows)
+              windowWidth <= 420
+                ? "repeat(3, 1fr)"
+                : windowWidth <= 800
+                ? "repeat(2, 1fr)"
+                : "repeat(auto-fill, minmax(260px, 1fr))",
+            gap: windowWidth <= 420 ? 8 : windowWidth <= 800 ? 14 : 28,
             marginTop: 18,
+            alignItems: 'start',
           }}
         >
           {displayProducts.map((p) => (
             <div
               key={p.id}
               style={{
-                border: "1.5px solid #e0e7ff",
-                padding: isMobile() ? '10px 6px 10px 6px' : '18px 16px 16px 16px',
-                borderRadius: "16px",
-                background: "#fff",
-                boxShadow: "0 2px 12px #c7d2fe22",
-                position: "relative",
-                minHeight: isMobile() ? '180px' : '240px',
-                transition: 'box-shadow 0.2s, transform 0.2s',
-                cursor: 'pointer',
-                willChange: 'transform',
-                display: 'flex', flexDirection: 'column', alignItems: 'stretch',
-              }}
+                  border: "1.5px solid #e0e7ff",
+                  padding:
+                    windowWidth <= 420 ? '8px 6px' : windowWidth <= 800 ? '12px 10px' : '18px 16px',
+                  borderRadius: "12px",
+                  background: "#fff",
+                  boxShadow: "0 2px 12px #c7d2fe22",
+                  position: "relative",
+                  minHeight: windowWidth <= 420 ? '140px' : windowWidth <= 800 ? '180px' : '240px',
+                  transition: 'box-shadow 0.2s, transform 0.2s',
+                  cursor: 'pointer',
+                  willChange: 'transform',
+                  display: 'flex', flexDirection: 'column', alignItems: 'stretch',
+                }}
               onMouseEnter={e => { if (!isMobile()) { e.currentTarget.style.boxShadow = '0 8px 32px #6366f133'; e.currentTarget.style.transform = 'translateY(-4px) scale(1.03)'; } }}
               onMouseLeave={e => { if (!isMobile()) { e.currentTarget.style.boxShadow = '0 2px 12px #c7d2fe22'; e.currentTarget.style.transform = 'none'; } }}
             >
@@ -397,10 +413,10 @@ export default function Shop() {
                   alt={p.name}
                   style={{
                     width: "100%",
-                    height: isMobile() ? '90px' : '150px',
+                    height: windowWidth <= 420 ? 70 : windowWidth <= 800 ? 110 : 150,
                     objectFit: "cover",
-                    borderRadius: "10px",
-                    marginBottom: isMobile() ? '6px' : '10px',
+                    borderRadius: "8px",
+                    marginBottom: windowWidth <= 420 ? 6 : 10,
                     background: '#f4f6fb',
                   }}
                   onError={e => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/300x150?text=No+Image'; }}
@@ -413,10 +429,10 @@ export default function Shop() {
                   No Image
                 </div>
               )}
-              <strong style={{ fontSize: 19, color: '#2d3748', marginBottom: 2 }}>{p.name || "Unnamed Drug"}</strong>
-              <p style={{ fontSize: 15, color: '#6366f1', margin: 0 }}><em>{p.ingredient || "No ingredient listed"}</em></p>
-              <p style={{ fontSize: 14, color: '#64748b', margin: '4px 0 0 0' }}>Class: {p.class || "No class listed"}</p>
-              <p style={{ fontSize: 16, color: '#059669', fontWeight: 700, margin: '6px 0 0 0' }}>₦{p.price !== undefined ? p.price : "N/A"}</p>
+                <strong style={{ fontSize: windowWidth <= 420 ? 12 : windowWidth <= 800 ? 15 : 19, color: '#2d3748', marginBottom: 2 }}>{p.name || "Unnamed Drug"}</strong>
+              <p style={{ fontSize: windowWidth <= 420 ? 10 : 15, color: '#6366f1', margin: 0 }}><em>{p.ingredient || "No ingredient listed"}</em></p>
+              <p style={{ fontSize: windowWidth <= 420 ? 9 : 14, color: '#64748b', margin: '4px 0 0 0' }}>Class: {p.class || "No class listed"}</p>
+              <p style={{ fontSize: windowWidth <= 420 ? 11 : 16, color: '#059669', fontWeight: 700, margin: '6px 0 0 0' }}>₦{p.price !== undefined ? p.price : "N/A"}</p>
               <p style={{ fontSize: "0.95em", color: "#555", margin: '6px 0 0 0' }}>
                 🏥 {p.ownerSlug ? (
                   <a
