@@ -412,7 +412,7 @@ export default function Home() {
       </Paper>
 
   <TestimonialsCarousel />
-  <SupportChatButton onClick={() => alert('Support chat coming soon!')} />
+  <SupportChatButton onClick={() => window.open('https://wa.me/2349050006638', '_blank')} />
   <FooterNav />
     </Container>
   );

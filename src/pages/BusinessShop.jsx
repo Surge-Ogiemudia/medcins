@@ -3,7 +3,7 @@ import React from "react";
 import { useEffect, useState } from "react";
 import { db } from "../firebase";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { toast } from "react-toastify";
 import { doc, setDoc, getDoc } from "firebase/firestore";
@@ -12,16 +12,17 @@ export default function BusinessShop() {
   // Track last seen order IDs to avoid duplicate notifications
   const [lastOrderIds, setLastOrderIds] = useState([]);
   const [showCartNotice, setShowCartNotice] = useState(false);
-  // Floating Talk to Pharmacist button
+  // Floating Chat with Pharmacist button
+  const navigate = useNavigate();
   const PharmacistButton = () => {
     if (!business?.pharmacist) return null;
-    const { name, photo, whatsapp } = business.pharmacist;
+    const { name, photo } = business.pharmacist;
     return (
       <button
         onClick={() => {
-          if (whatsapp) {
-            window.open(`https://wa.me/${whatsapp}`, '_blank');
-          }
+          if (!user) return alert("Please log in to chat");
+          // Route to /chat/:businessId, passing pharmacist info
+          navigate(`/chat/${business.uid}`, { state: { pharmacist: business.pharmacist, businessName: business.businessName } });
         }}
         style={{
           position: 'fixed',
@@ -49,7 +50,7 @@ export default function BusinessShop() {
         {photo && (
           <img src={photo} alt={name} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', marginRight: 6 }} />
         )}
-        Talk to {name}
+        Chat with {name}
       </button>
     );
   };

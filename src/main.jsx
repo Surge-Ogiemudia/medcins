@@ -26,7 +26,8 @@ import AgentsList from "./pages/AgentsList";
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
-
+import Chat from "./pages/Chat";
+import SupportChatButton from "./components/SupportChatButton";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -36,6 +37,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <>
           <Navbar />
           <LeaveStoreButton />
+          <SupportChatButton onClick={() => window.open('https://wa.me/2349050006638', '_blank')} />
           <Routes>
             {/* New delivery agent profile route by slug */}
             <Route path="/agent/:slug" element={<DeliveryAgentProfile />} />
@@ -55,6 +57,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <Route path="/medinterface" element={<Medinterface />} />
             <Route path="/businesses" element={<BusinessList />} />
             <Route path="/agents" element={<AgentsList />} />
+            <Route path="/chat/:businessId" element={<Chat />} />
           </Routes>
           <ToastContainer position="top-right" autoClose={4000} hideProgressBar={false} newestOnTop closeOnClick pauseOnFocusLoss draggable pauseOnHover />
         </>

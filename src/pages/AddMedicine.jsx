@@ -301,8 +301,11 @@ export default function AddMedicine() {
 
   return (
     <div style={{ padding: "30px", maxWidth: "1200px", margin: "auto" }}>
-      <h2>Medicine Management</h2>
-      <p>Logged in as: {user.email}</p>
+
+  <h2>Medicine Management</h2>
+  <p>Logged in as: {user.email}</p>
+  {/* Change Location Button */}
+  <ChangeLocation user={user} userData={userData} setUserData={setUserData} />
 
       {/* Tabs */}
       <div style={{display:'flex',marginTop:30,gap:20}}>
@@ -318,6 +321,10 @@ export default function AddMedicine() {
           style={{padding:'10px 30px',fontWeight:'bold',borderRadius:8,border:activeTab==='pharmacist'?'2px solid #1976d2':'1px solid #ccc',background:activeTab==='pharmacist'?'#e3f2fd':'#fff',cursor:'pointer'}} 
           onClick={()=>setActiveTab('pharmacist')}
         >Pharmacist Management</button>
+        <button 
+          style={{padding:'10px 30px',fontWeight:'bold',borderRadius:8,border:activeTab==='chats'?'2px solid #1976d2':'1px solid #ccc',background:activeTab==='chats'?'#e3f2fd':'#fff',cursor:'pointer'}} 
+          onClick={()=>setActiveTab('chats')}
+        >Customer Chats</button>
       </div>
 
       {/* Tab Content */}
@@ -457,13 +464,18 @@ export default function AddMedicine() {
             )}
           </div>
         )}
+        {activeTab==='chats' && (
+          <div style={{background:'#f8f8ff',padding:'24px',borderRadius:'12px',maxWidth:'900px',margin:'auto'}}>
+            <ChatInbox businessId={user.uid} />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// PharmacistManager component
 import React from "react";
+import ChatInbox from "./ChatInbox";
 
 function PharmacistManager({ userId }) {
   const [pharmacist, setPharmacist] = React.useState(null);
@@ -529,6 +541,74 @@ function PharmacistManager({ userId }) {
           <div><a href={`https://wa.me/${pharmacist.whatsapp}`} target="_blank" rel="noopener noreferrer">Chat on WhatsApp</a></div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Place this at the very end of the file, after the main export
+
+function ChangeLocation({ user, userData, setUserData }) {
+  const [loading, setLoading] = React.useState(false);
+  const [success, setSuccess] = React.useState(false);
+  const [error, setError] = React.useState("");
+
+  // Get the current location from userData (passed via prop)
+  const currentLat = userData?.location?.latitude || userData?.lat;
+  const currentLng = userData?.location?.longitude || userData?.lng;
+
+  const handleChangeLocation = () => {
+    setLoading(true);
+    setError("");
+    setSuccess(false);
+    if (!navigator.geolocation) {
+      setError("Geolocation not supported by your browser.");
+      setLoading(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const coords = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        };
+        try {
+          await updateDoc(doc(db, "users", user.uid), {
+            location: coords,
+            lat: coords.latitude,
+            lng: coords.longitude,
+          });
+          setUserData((prev) => ({ ...prev, location: coords, lat: coords.latitude, lng: coords.longitude }));
+          setSuccess(true);
+        } catch (err) {
+          setError("Failed to update location.");
+        }
+        setLoading(false);
+      },
+      (err) => {
+        setError("Location access denied or unavailable.");
+        setLoading(false);
+      }
+    );
+  };
+
+  return (
+    <div style={{ margin: '10px 0 20px 0' }}>
+      <div style={{ marginBottom: 6, color: '#444', fontSize: 15 }}>
+        <b>Current Location:</b>{' '}
+        {currentLat && currentLng ? (
+          <span style={{ color: '#6366f1' }}>Lat: {currentLat.toFixed(5)}, Lng: {currentLng.toFixed(5)}</span>
+        ) : (
+          <span style={{ color: '#888' }}>Not set</span>
+        )}
+      </div>
+      <div style={{ marginBottom: 10, color: '#b91c1c', fontSize: 14 }}>
+        <b>Instruction:</b> Please ensure you are physically present inside or directly in front of your pharmacy before updating your location.
+      </div>
+      <button onClick={handleChangeLocation} disabled={loading} style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 18px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', marginRight: 10 }}>
+        {loading ? 'Updating location...' : 'Change Location'}
+      </button>
+      {success && <span style={{ color: '#059669', marginLeft: 8 }}>Location updated!</span>}
+      {error && <span style={{ color: '#e53935', marginLeft: 8 }}>{error}</span>}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Card, CardContent, Typography, Grid, FormControl, Select, MenuItem, TextField, Button, Divider } from "@mui/material";
+import { Box, Card, CardContent, Typography, Grid, FormControl, Select, MenuItem, TextField, Button, Divider, Alert } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebase";
@@ -18,15 +18,19 @@ export default function Payment() {
   const [user, setUser] = useState(null);
   const [cart, setCart] = useState(location.state?.cart || []);
   const [subtotal, setSubtotal] = useState(location.state?.total || 0);
+  // If cart is only a consultation, delivery fee is zero
+  const isConsultOnly = cart.length === 1 && cart[0]?.isConsultation;
   const [deliveryType, setDeliveryType] = useState("standard");
-  const [deliveryFee, setDeliveryFee] = useState(500); // default standard
+  const [deliveryFee, setDeliveryFee] = useState(isConsultOnly ? 0 : 500);
   const [pomFee, setPomFee] = useState(1000);
-  const [grandTotal, setGrandTotal] = useState(subtotal + deliveryFee);
+  const [grandTotal, setGrandTotal] = useState(subtotal + (isConsultOnly ? 0 : deliveryFee));
 
   const [deliveryInfo, setDeliveryInfo] = useState({
     name: "",
     phone: "",
     address: "",
+    age: "",
+    complaint: "",
     city: "",
     state: "",
     instructions: "",
@@ -59,7 +63,7 @@ export default function Payment() {
 
   useEffect(() => {
     // Check for POM items
-  let pomFee = cart.some(item => item.isPOM) ? 500 : 0;
+  let pomFee = cart.some(item => item.isPOM) ? 500 : 0; // leave as is, not related to consultation
   let delivery = deliveryFee;
     let sub = subtotal;
     let discount = 0;
@@ -74,12 +78,16 @@ export default function Payment() {
 
   // Update delivery fee when delivery type changes
   useEffect(() => {
-    if (deliveryType === "standard") {
-      setDeliveryFee(500);
+    if (isConsultOnly) {
+      setDeliveryFee(0);
     } else {
-      setDeliveryFee(3000);
+      if (deliveryType === "standard") {
+  setDeliveryFee(500);
+      } else {
+        setDeliveryFee(3000);
+      }
     }
-  }, [deliveryType]);
+  }, [deliveryType, isConsultOnly]);
   const handleApplyCoupon = async () => {
     setCouponError("");
     const data = await validateCoupon(coupon.trim().toUpperCase());
@@ -92,8 +100,14 @@ export default function Payment() {
     }
   };
   const isDeliveryInfoValid = () => {
-    const requiredFields = ["name", "phone", "address", "city", "state"];
-    return requiredFields.every((field) => deliveryInfo[field]?.trim());
+    if (isConsultOnly) {
+      // Only require name, phone, address, age, complaint
+      const requiredFields = ["name", "phone", "address", "age", "complaint"];
+      return requiredFields.every((field) => deliveryInfo[field]?.trim());
+    } else {
+      const requiredFields = ["name", "phone", "address", "city", "state"];
+      return requiredFields.every((field) => deliveryInfo[field]?.trim());
+    }
   };
 
   const config = {
@@ -127,8 +141,22 @@ export default function Payment() {
     setSubtotal(0);
     setGrandTotal(0);
 
-      toast.success("✅ Payment successful! Order created.");
+    toast.success("✅ Payment successful! Order created.");
+    // If this is a consultation payment, redirect to WhatsApp
+    const consultItem = cart.find(item => item.isConsultation && item.whatsapp);
+    if (consultItem) {
+      window.location.href = `https://wa.me/${consultItem.whatsapp}`;
+      return;
+    }
+    // If there are POM items, redirect to the specific pharmacist attached to the medicine-manager/pharmacy
+    const pomItem = cart.find(item => item.isPOM && item.pharmacist && item.ownerId);
+    if (pomItem && pomItem.pharmacist && pomItem.ownerId) {
+      // Redirect to chat with the pharmacist for this business
+      navigate(`/chat/${pomItem.ownerId}`, { state: { pharmacist: pomItem.pharmacist, businessName: pomItem.businessName } });
+      return;
+    }
     if (cart.some(item => item.isPOM)) {
+      // Fallback: if POM but no pharmacist info, go to medinterface
       navigate("/medinterface");
     } else {
       navigate("/orders");
@@ -181,27 +209,31 @@ export default function Payment() {
                 <Grid item xs={5}>
                   <Typography fontWeight={500}>₦{subtotal}</Typography>
                 </Grid>
-                <Grid item xs={7}>
-                  <Typography>Delivery Type:</Typography>
-                </Grid>
-                <Grid item xs={5}>
-                  <FormControl fullWidth size="small">
-                    <Select
-                      value={deliveryType}
-                      onChange={e => setDeliveryType(e.target.value)}
-                      sx={{ bgcolor: "#fff", borderRadius: 2 }}
-                    >
-                      <MenuItem value="standard">Standard (1-2 days) - ₦500</MenuItem>
-                      <MenuItem value="express">Express (30mins-3hrs) - ₦3000</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={7}>
-                  <Typography>Delivery Fee:</Typography>
-                </Grid>
-                <Grid item xs={5}>
-                  <Typography fontWeight={500}>₦{couponData?.removeDelivery ? 0 : deliveryFee}</Typography>
-                </Grid>
+                {!isConsultOnly && (
+                  <>
+                    <Grid item xs={7}>
+                      <Typography>Delivery Type:</Typography>
+                    </Grid>
+                    <Grid item xs={5}>
+                      <FormControl fullWidth size="small">
+                        <Select
+                          value={deliveryType}
+                          onChange={e => setDeliveryType(e.target.value)}
+                          sx={{ bgcolor: "#fff", borderRadius: 2 }}
+                        >
+                          <MenuItem value="standard">Standard (1-2 days) - ₦500</MenuItem>
+                          <MenuItem value="express">Express (30mins-3hrs) - ₦3000</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    <Grid item xs={7}>
+                      <Typography>Delivery Fee:</Typography>
+                    </Grid>
+                    <Grid item xs={5}>
+                      <Typography fontWeight={500}>₦{couponData?.removeDelivery ? 0 : deliveryFee}</Typography>
+                    </Grid>
+                  </>
+                )}
                 <Grid item xs={7}>
                   <Typography color={pomFee > 0 ? "error" : "inherit"}>POM Fee:</Typography>
                 </Grid>
@@ -251,73 +283,138 @@ export default function Payment() {
                 </Alert>
               )}
               <Divider sx={{ my: 3 }} />
-              <Typography variant="h6" fontWeight={600} gutterBottom>
-                📍 Delivery Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Full Name"
-                    name="name"
-                    value={deliveryInfo.name}
-                    onChange={handleInputChange}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Phone Number"
-                    name="phone"
-                    value={deliveryInfo.phone}
-                    onChange={handleInputChange}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Street Address"
-                    name="address"
-                    value={deliveryInfo.address}
-                    onChange={handleInputChange}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="City"
-                    name="city"
-                    value={deliveryInfo.city}
-                    onChange={handleInputChange}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="State"
-                    name="state"
-                    value={deliveryInfo.state}
-                    onChange={handleInputChange}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Delivery Instructions (optional)"
-                    name="instructions"
-                    value={deliveryInfo.instructions}
-                    onChange={handleInputChange}
-                    multiline
-                    minRows={2}
-                  />
-                </Grid>
-              </Grid>
+              {isConsultOnly ? (
+                <>
+                  <Typography variant="h6" fontWeight={600} gutterBottom>
+                    🩺 Consultation Information
+                  </Typography>
+                  <Grid container spacing={2} sx={{ mb: 2 }}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Full Name"
+                        name="name"
+                        value={deliveryInfo.name}
+                        onChange={handleInputChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Phone Number"
+                        name="phone"
+                        value={deliveryInfo.phone}
+                        onChange={handleInputChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Address"
+                        name="address"
+                        value={deliveryInfo.address}
+                        onChange={handleInputChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Age"
+                        name="age"
+                        value={deliveryInfo.age}
+                        onChange={handleInputChange}
+                        type="number"
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Major Complaint"
+                        name="complaint"
+                        value={deliveryInfo.complaint}
+                        onChange={handleInputChange}
+                        multiline
+                        minRows={2}
+                      />
+                    </Grid>
+                  </Grid>
+                </>
+              ) : (
+                <>
+                  <Typography variant="h6" fontWeight={600} gutterBottom>
+                    �📍 Delivery Information
+                  </Typography>
+                  <Grid container spacing={2} sx={{ mb: 2 }}>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Full Name"
+                        name="name"
+                        value={deliveryInfo.name}
+                        onChange={handleInputChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Phone Number"
+                        name="phone"
+                        value={deliveryInfo.phone}
+                        onChange={handleInputChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Street Address"
+                        name="address"
+                        value={deliveryInfo.address}
+                        onChange={handleInputChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="City"
+                        name="city"
+                        value={deliveryInfo.city}
+                        onChange={handleInputChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="State"
+                        name="state"
+                        value={deliveryInfo.state}
+                        onChange={handleInputChange}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Delivery Instructions (optional)"
+                        name="instructions"
+                        value={deliveryInfo.instructions}
+                        onChange={handleInputChange}
+                        multiline
+                        minRows={2}
+                      />
+                    </Grid>
+                  </Grid>
+                </>
+              )}
               <Box sx={{ mt: 2, textAlign: "center" }}>
                 {isDeliveryInfoValid() ? (
                   grandTotal > 0 ? (

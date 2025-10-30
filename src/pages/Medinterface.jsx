@@ -3,7 +3,9 @@ import React, { useEffect, useState } from "react";
 import { db } from "../firebase";
 import { collection, getDocs } from "firebase/firestore";
 
+import { useNavigate } from "react-router-dom";
 function MedicsList({ medics }) {
+  const navigate = useNavigate();
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 24, marginTop: 24 }}>
       {[...medics].sort((a, b) => (b.online === true) - (a.online === true)).map((medic) => {
@@ -13,6 +15,26 @@ function MedicsList({ medics }) {
         } else if (typeof medic.languages === "string") {
           languagesArr = medic.languages.split(",").map(l => l.trim()).filter(Boolean);
         }
+        const handleClick = () => {
+          // Send to payment page with consultation fee and medic info
+          navigate("/payment", {
+            state: {
+              cart: [
+                {
+                  name: `Consultation with ${medic.name}`,
+                  price: 3000,
+                  quantity: 1,
+                  isConsultation: true,
+                  whatsapp: medic.whatsapp,
+                  medicName: medic.name,
+                  medicId: medic.id
+                }
+              ],
+              total: 3000,
+              fromMedinterface: true
+            }
+          });
+        };
         return (
           <div
             key={medic.id}
@@ -29,7 +51,7 @@ function MedicsList({ medics }) {
               boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
               cursor: "pointer"
             }}
-            onClick={() => window.open(`https://wa.me/${medic.whatsapp}`, "_blank")}
+            onClick={handleClick}
           >
             {/* Online/Offline Dot */}
             <span

@@ -35,7 +35,9 @@ const getNavContainerStyle = () => ({
   justifyContent: "space-between",
   padding: isMobile() ? "0 8px" : "0 24px",
   height: isMobile() ? 54 : 70,
-  flexWrap: isMobile() ? "wrap" : "nowrap",
+  minWidth: 0,
+  flexWrap: "nowrap",
+  gap: 0,
 });
 
 const logoBoxStyle = {
@@ -51,8 +53,13 @@ const getNavLinksGroupStyle = () => ({
   gap: isMobile() ? 8 : 24,
   flexGrow: 1,
   justifyContent: "center",
-  flexWrap: isMobile() ? "wrap" : "nowrap",
+  flexWrap: "nowrap",
   fontSize: isMobile() ? 13 : 16,
+  minWidth: 0,
+  overflowX: "auto",
+  whiteSpace: "nowrap",
+  scrollbarWidth: "thin",
+  msOverflowStyle: "auto",
 });
 
 const navRightStyle = {
@@ -71,6 +78,11 @@ const linkStyle = {
   padding: isMobile() ? "6px 8px" : "8px 14px",
   borderRadius: 8,
   transition: "background 0.2s, color 0.2s",
+  whiteSpace: "nowrap",
+  minWidth: 0,
+  maxWidth: "100vw",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
 const linkActiveStyle = {
